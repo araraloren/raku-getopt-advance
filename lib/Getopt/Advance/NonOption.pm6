@@ -3,28 +3,56 @@ use Getopt::Advance::Argument;
 
 constant NOALL  = "all";
 constant NOPOS  = "position";
-constant NONAME = "name";
 
 role NonOption {
-    method name returns Str { ... }
-    method index returns Int { ... }
-    method callback { ... }
-    method set-name(Str:D) { ... }
-    method set-index(Int:D) { ... }
-    method set-callback(Callable:D) { ... }
-    method has-name returns Bool { ... }
-    method has-index returns Bool { ... }
+    method set-callback(&callback) { ... }
     method has-callback returns Bool { ... }
+    method CALL-ME(|c) { ... }
     method type returns Str { ... }
-    multi method ACCEPT(Int:D) { ... }
-    multi method ACCEPT(Str:D) { ... }
     method clone(*%_) { ... }
 }
 
-class NonOption::Base does NonOption {
+class NonOption::All does NonOption {
     has &.callback;
-    has $.name;
-    has $.index;
+
+    submethod TWEAK(:&callback) {
+        self.set(&callback);
+    }
+
+    method set-callback(
+        &callback where .signature ~~ :($, Argument @) | :(Argument @)
+    ) {
+        &!callback = &callback;
+    }
+
+    method has-callback() {
+        &!callback.defined;
+    }
+
+    method type returns Str {
+        NOALL;
+    }
+
+    method CALL-ME(|c) {
+        &!callback(|c);# add !!!!
+    }
+
+    method clone(*%_) {
+        self.bless(
+            callback    => %_<callback> // &!callback.clone,
+        );
+        nextwith(|%_);
+    }
+}
+
+class NonOption::Pos does NonOption {
+    has &.callback;
+    has $.name = "";
+    has $.index = -1;
+
+    submethod TWEAK(:&callback) {
+        self.set(&callback);
+    }
 
     method set-name(Str:D $name) {
         $!name = $name;
@@ -34,7 +62,9 @@ class NonOption::Base does NonOption {
         $!index = $index;
     }
 
-    method set-callback(&callback) {
+    method set-callback(
+        &callback where .signature ~~ :($, Argument $) | :(Argument $)
+    ) {
         &!callback = &callback;
     }
 
@@ -51,15 +81,11 @@ class NonOption::Base does NonOption {
     }
 
     method type returns Str {
-        die "{$?CLASS} has no type!";
+        NOPOS;
     }
 
-    multi method ACCEPT(Int:D $index) {
-        not $!index.defined || $!index == $index;
-    }
-
-    multi method ACCEPT(Str:D $name) {
-        not $!name.defined || $name eq $!name;
+    method CALL-ME(|c) {
+        &!callback(|c);
     }
 
     method clone(*%_) {
@@ -67,32 +93,8 @@ class NonOption::Base does NonOption {
             callback    => %_<callback> // &!callback.clone,
             name        => %_<name> // $!name.clone,
             index       => %_<index> // $!index.clone,
-        )
+        );
         nextwith(|%_);
-    }
-}
-
-class NonOption::All is NonOption::Base {
-    method set-callback(
-        &callback where .signature ~~ :($, Argument @) | :(Argument @)
-    ) {
-        &!callback = &callback;
-    }
-
-    method type returns Str {
-        NOALL;
-    }
-}
-
-class NonOption::Index is NonOption::Base {
-    method set-callback(
-        &callback where .signature ~~ :($, Argument $) | :(Argument $)
-    ) {
-        &!callback = &callback;
-    }
-
-    method type returns Str {
-        NOPOS;
     }
 
     method new-front(*%_) {

@@ -16,27 +16,28 @@ role Option {
     method optional returns Bool { ... }
     method annotation returns Str { ... }
     method default-value { ... }
-    method set-value(Mu:D, Bool :$callback) { ... }
+    method set-value(Mu, Bool :$callback) { ... }
     method set-long(Str:D) { ... }
     method set-short(Str:D) { ... }
     method set-callback(&callback) { ... }
     method set-optional(Mu) { ... }
     method set-annotation(Str:D) { ... }
-    method set-default-value(Mu:D) { ... }
+    method set-default-value(Mu) { ... }
     method has-value returns Bool { ... }
     method has-long returns Bool { ... }
     method has-short returns Bool { ... }
     method has-callback returns Bool { ... }
     method has-annotation returns Bool { ... }
-    method has-default-value(Mu:D) returns Bool { ... }
+    method has-default-value returns Bool { ... }
     method reset-long { ... }
     method reset-short { ... }
     method reset-value { ... }
     method reset-callback { ... }
     method reset-annotation { ... }
     method type returns Str { ... }
-    multi method ACCEPT(Str:D) { ... }
-    multi method ACCEPT(Mu:D) { ... }
+    method check() { ... }
+    method match-name(Str:D) { ... }
+    method match-value(Mu) { ... }
     method usage() returns Str {
         my Str $usage = "";
 
@@ -54,26 +55,44 @@ role Option {
     method clone(*%_) { ... }
 }
 
-class Option::Base does Option {
-    constant LN = 0;
-    constant SN = 1;
-
-    has @.name;
+role Option::Base does Option {
+    has $.long  = "";
+    has $.short = "";
     has &.callback;
     has $.optional;
     has $.annotation;
     has $.value;
     has $.default-value;
 
+    method callback {
+        &!callback;
+    }
+
+    method optional {
+        $!optional;
+    }
+
+    method annotation {
+        $!annotation;
+    }
+
+    method value {
+        $!value;
+    }
+
+    method default-value {
+        $!default-value;
+    }
+
     method long {
-        @!name[SN];
+        $!long;
     }
 
     method short {
-        @!name[LN];
+        $!short;
     }
 
-    method set-value(Mu:D $value, Bool :$callback) {
+    method set-value(Mu $value, Bool :$callback) {
         if $callback.so && &!callback.defined {
             &!callback(self);
         }
@@ -81,11 +100,11 @@ class Option::Base does Option {
     }
 
     method set-long(Str:D $name) {
-        @!name[LN] = $name;
+        $!long = $name;
     }
 
     method set-short(Str:D $name) {
-        @!name[SN] = $name;
+        $!short = $name;
     }
 
     method set-callback(
@@ -102,7 +121,7 @@ class Option::Base does Option {
         $!annotation = $annotation;
     }
 
-    method set-default-value(Mu:D $value) {
+    method set-default-value(Mu $value) {
         $!default-value = $value;
     }
 
@@ -111,11 +130,11 @@ class Option::Base does Option {
     }
 
     method has-long() returns Bool {
-        @!name[LN] ne "";
+        $!long ne "";
     }
 
     method has-short() returns Bool {
-        @!name[SN] ne "";
+        $!short ne "";
     }
 
     method has-callback() returns Bool {
@@ -131,11 +150,11 @@ class Option::Base does Option {
     }
 
     method reset-long {
-        @!name[LN] = "";
+        $!long = "";
     }
 
     method reset-short {
-        @!name[SN] = "";
+        $!short = "";
     }
 
     method reset-value {
@@ -154,19 +173,24 @@ class Option::Base does Option {
         die "{$?CLASS} has no type!";
     }
 
-    multi method ACCEPT(Str:D $name) {
+    method check() {
+        return $!optional || self.has-value();
+    }
+
+    method match-name(Str:D $name) {
         $name eq self.long
             ||
         $name eq self.short;
     }
 
-    multi method ACCEPT(Mu:D) {
+    method match-value(Mu) {
         False;
     }
 
     method clone(*%_) {
         self.bless(
-            name        => %_<name>   // @!name.clone,
+            long        => %_<long> // $!long.clone,
+            short       => %_<short> // $!short.clone,
             callback    => %_<callback> // &!callback.clone,
             optional    => %_<optional> // $!optional.clone,
             annotation  => %_<annotation> // $!annotation.clone,
@@ -177,35 +201,37 @@ class Option::Base does Option {
     }
 }
 
-class Option::Boolean is Option::Base {
+class Option::Boolean does Option::Base {
     submethod TWEAK(:$value, :$deactivate) {
         if $deactivate {
             if $value.defined && !$value {
                 &invalid-value("{self.usage()}: default value must be True in deactivate-style.");
             }
-            $!default-value = $!value = True;
+            $!default-value = True;
         }
+        self.set-value($value, False);
     }
 
-    method set-value(Bool:D $value, Bool :$callback) {
-        callsame;
+    method set-value(Mu $value, Bool :$callback) {
+        callwith($value.so, $callback);
     }
 
     method type() {
         "boolean";
     }
 
-    multi method ACCEPT(Mu:D) {
+    method match-value(Mu:D) {
         True;
     }
 }
 
 
-class Option::Integer is Option::Base {
+class Option::Integer does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             $!default-value = $value;
         }
+        self.set-value($value, False);
     }
 
     method set-value(Mu:D $value, Bool :$callback) {
@@ -222,16 +248,17 @@ class Option::Integer is Option::Base {
         "integer";
     }
 
-    multi method ACCEPT(Mu:D $value) {
+    method match-value(Mu:D $value) {
         $value ~~ Int || so +$value;
     }
 }
 
-class Option::Float is Option::Base {
+class Option::Float does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             $!default-value = $value;
         }
+        self.set-value($value, False);
     }
 
     method set-value(FatRat:D $value, Bool :$callback) {
@@ -248,16 +275,17 @@ class Option::Float is Option::Base {
         "float";
     }
 
-    multi method ACCEPT(Mu:D $value) {
-        $value ~~ FatRat || so $value.FatRat; 
+    method match-value(Mu:D $value) {
+        $value ~~ FatRat || so $value.FatRat;
     }
 }
 
-class Option::String is Option::Base {
+class Option::String does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             $!default-value = $value;
         }
+        self.set-value($value, False);
     }
 
     method set-value(Str:D $value, Bool :$callback) {
@@ -274,12 +302,12 @@ class Option::String is Option::Base {
         "string";
     }
 
-    multi method ACCEPT(Mu:D $value) {
+    method match-value(Mu:D $value) {
         $value ~~ Str || so ~$value;
     }
 }
 
-class Option::Hash is Option::Base {
+class Option::Hash does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Hash {
@@ -289,9 +317,16 @@ class Option::Hash is Option::Base {
         }
     }
 
-    method set-value(Pair:D $value, Bool :$callback) {
+    # This actually is a push-value
+    method set-value(Mu:D $value, Bool :$callback) {
         my %hash = $!value.defined ?? %$!value !! Hash.new;
-        %hash.push($value);
+        if $value ~~ Pair {
+            %hash.push($value);
+        } elsif so $value.pairup {
+            %hash.push($value.pairup);
+        } else {
+            &invalid-value("{self.usage()}: Need a Pair.");
+        }
         callwith(%hash, :$callback);
     }
 
@@ -299,12 +334,12 @@ class Option::Hash is Option::Base {
         "hash";
     }
 
-    multi method ACCEPT(Mu:D $value) {
-        $value ~~ Pair || $value.^can("pairup");
+    method match-value(Mu:D $value) {
+        $value ~~ Pair || so $value.pairup;
     }
 }
 
-class Option::Array is Option::Base {
+class Option::Array does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Positional {
@@ -314,6 +349,7 @@ class Option::Array is Option::Base {
         }
     }
 
+    # This actually is a push-value
     method set-value($value, Bool :$callback) {
         my @array = $!value ?? @$!value !! Array.new;
         @array.push($value);
@@ -324,7 +360,7 @@ class Option::Array is Option::Base {
         "array";
     }
 
-    multi method ACCEPT(Mu:D $value) {
+    method match-value(Mu:D $value) {
         True;
     }
 }

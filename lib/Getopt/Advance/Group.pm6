@@ -1,27 +1,64 @@
 
 use Getopt::Advance::Exception;
 
-role Constraint {
-    method check() { ... }
+class Group::OptionName {
+    has $.long is rw;
+    has $.short is rw;
 }
 
-class Group {
-    has @.options;
+role Group {
+    has $.optsetref;
+    has @.names;
     has $.optional = False;
+
+    # @options are names of options in group
+    submethod TWEAK(:@options) {
+        @!names = [];
+        for @options {
+            @!names.push(
+                Group::OptionName.new(long => .long, short => .short)
+            );
+        }
+    }
 
     method usage() {
         my $usage = "";
 
         $usage ~= $!optional ?? "+\[ " !! "+\{ ";
-        $usage ~= .usage() for @!options;
+        $usage ~= $!optsetref.get($_).usage() for @!names;
         $usage ~= $!optional ?? " \]+>" !! " \}+";
         $usage;
     }
+
+    method has(Str:D $name --> Bool) {
+        for @!names {
+            return True if $name eq .long | .short;
+        }
+        False;
+    }
+
+    method remove(Str:D $name where $name !~~ /^\s+$/) {
+        for ^+@!names -> $index {
+            my $optn := @!names[$index];
+            if $name eq $optn.long {
+                $optn.long = "";
+            } 
+            if $name eq $optn.short {
+                $optn.short = "";
+            }
+            if $optn.long eq "" and $optn.short eq "" {
+                @!names.splice($index, 1);
+                return True;
+            }
+        }
+    }
+
+    method check() { ... }
 }
 
-class Group::Radio is Group does Constraint {
+class Group::Radio does Group {
     method check() {
-        given @!options.grep({ .has-value }) {
+        given @!names.grep({ .has-value }) {
             when 0 {
                 unless $!optional {
                     X::GA::GroupValueInvalid
@@ -38,10 +75,10 @@ class Group::Radio is Group does Constraint {
     }
 }
 
-class Group::Multi is Group does Constraint {
+class Group::Multi does Group {
     method check() {
         if $!optional {
-            if @!options.grep({ .has-value }) < +@!options {
+            if @!names.grep({ .has-value }) < +@!names {
                 X::GA::GroupValueInvalid
                 .new(message => "Multi option group value is force required!")
                 .throw;
