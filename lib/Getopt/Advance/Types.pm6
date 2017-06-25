@@ -43,38 +43,38 @@ my grammar Grammar::Option {
 }
 
 my class Actions::Option {
-	has $.deactivate;
-	has $.optional;
-	has $.type;
-	has $.long;
-	has $.short;
+	has $.opt-deactivate;
+	has $.opt-optional;
+	has $.opt-type;
+	has $.opt-long;
+	has $.opt-short;
 
 	method option($/) {
 		without ($<long> | $<short> ) {
 			my $name = $<name>.Str;
 
-			$name.chars > 1 ?? ($!long = $name) !! ($!short = $name);
+			$name.chars > 1 ?? ($!opt-long = $name) !! ($!opt-short = $name);
 		}
 	}
 
 	method short($/) {
-		$!short = $/.Str;
+		$!opt-short = $/.Str;
 	}
 
 	method long($/) {
-		$!long = $/.Str;
+		$!opt-long = $/.Str;
 	}
 
 	method type($/) {
-		$!type = $/.Str;
+		$!opt-type = $/.Str;
 	}
 
 	method optional($/) {
-		$!optional = True;
+		$!opt-optional = True;
 	}
 
 	method deactivate($/) {
-		$!deactivate = True;
+		$!opt-deactivate = True;
 	}
 }
 
@@ -90,7 +90,7 @@ class Types::Manager {
     }
 
     method register(Str:D $name, Mu:U $type --> ::?CLASS:D) {
-        if not self.in($name) {
+        if not self.has($name) {
             %!types{$name} = $type;
         }
         self;
@@ -99,7 +99,7 @@ class Types::Manager {
     sub opt-string-parse(Str $str) {
         my $action = Actions::Option.new;
         unless Grammar::Option.parse($str, :actions($action)) {
-            &raise-error("{$str}: Unable to parse option string!");
+            raise-error("{$str}: Unable to parse option string!");
         }
         return $action;
     }
@@ -116,15 +116,16 @@ class Types::Manager {
         my $setting = &opt-string-parse($str);
         my $option;
 
-        unless %!types{$setting.type} ~~ Option {
-            &raise-error("{$setting.type}: Invalid option type!");
+        unless %!types{$setting.opt-type} ~~ Option {
+            raise-error("{$setting.opt-type}: Invalid option type!");
         }
-        $option = %!types{$setting.type}.new(
-            name        => [$setting.short // "", $setting.long // ""],
+        $option = %!types{$setting.opt-type}.new(
+			long 		=> $setting.opt-short // "",
+            short       => $setting.opt-long // "",
             callback    => &callback,
-            optional    => $setting.optional,
+            optional    => $setting.opt-optional,
             value       => $value,
-            deactivate  => $setting.deactivate,
+            deactivate  => $setting.opt-deactivate,
         );
         $option;
     }
@@ -133,17 +134,25 @@ class Types::Manager {
         my $setting = &opt-string-parse($str);
         my $option;
 
-        unless %!types{$setting.type} ~~ Option {
-            &raise-error("{$setting.type}: Invalid option type!");
+        unless %!types{$setting.opt-type} ~~ Option {
+            raise-error("{$setting.opt-type}: Invalid option type!");
         }
-        $option = %!types{$setting.type}.new(
-            name        => [$setting.short // "", $setting.long // ""],
+        $option = %!types{$setting.opt-type}.new(
+			long 		=> $setting.opt-short // "",
+			short       => $setting.opt-long // "",
             callback    => &callback,
-            optional    => $setting.optional,
+            optional    => $setting.opt-optional,
             value       => $value,
             annotation  => $annotation,
-            deactivate  => $setting.deactivate,
+            deactivate  => $setting.opt-deactivate,
         );
         $option;
     }
+
+	method clone(*%_) {
+		self.bless(
+			types => %_<types> // %!types.clone,
+		);
+		nextwith(|%_);
+	}
 }

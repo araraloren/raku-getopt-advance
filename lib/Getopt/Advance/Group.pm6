@@ -42,7 +42,7 @@ role Group {
             my $optn := @!names[$index];
             if $name eq $optn.long {
                 $optn.long = "";
-            } 
+            }
             if $name eq $optn.short {
                 $optn.short = "";
             }
@@ -54,6 +54,15 @@ role Group {
     }
 
     method check() { ... }
+
+    method clone(*%_) {
+        self.bless(
+            optsetref => %_<optsetref> // $!optsetref,
+            names => %_<names> // @!names.clone,
+            optional => %_<optional> // $!optional,
+        );
+        nextwith(|%_);
+    }
 }
 
 class Group::Radio does Group {

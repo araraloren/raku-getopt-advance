@@ -1,12 +1,12 @@
 
 use Getopt::Advance::Exception;
 
-constant BOOLEAN = "boolean";
-constant INTEGER = "integer";
-constant STRING  = "string";
-constant FLOAT   = "float";
-constant ARRAY   = "array";
-constant HASH    = "hash";
+constant BOOLEAN is export = "boolean";
+constant INTEGER is export = "integer";
+constant STRING  is export = "string";
+constant FLOAT   is export = "float";
+constant ARRAY   is export = "array";
+constant HASH    is export = "hash";
 
 role Option {
     method value { ... }
@@ -205,11 +205,11 @@ class Option::Boolean does Option::Base {
     submethod TWEAK(:$value, :$deactivate) {
         if $deactivate {
             if $value.defined && !$value {
-                &invalid-value("{self.usage()}: default value must be True in deactivate-style.");
+                invalid-value("{self.usage()}: default value must be True in deactivate-style.");
             }
             $!default-value = True;
         }
-        self.set-value($value, False);
+        self.set-value($value, :!callback);
     }
 
     method set-value(Mu $value, Bool :$callback) {
@@ -230,8 +230,8 @@ class Option::Integer does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             $!default-value = $value;
+            self.set-value($value, :!callback);
         }
-        self.set-value($value, False);
     }
 
     method set-value(Mu:D $value, Bool :$callback) {
@@ -240,7 +240,7 @@ class Option::Integer does Option::Base {
         } elsif so +$value {
             callwith(+$value, :$callback);
         } else {
-            &invalid-value("{self.usage()}: Need integer.");
+            invalid-value("{self.usage()}: Need integer.");
         }
     }
 
@@ -257,8 +257,8 @@ class Option::Float does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             $!default-value = $value;
+            self.set-value($value, :!callback);
         }
-        self.set-value($value, False);
     }
 
     method set-value(FatRat:D $value, Bool :$callback) {
@@ -267,7 +267,7 @@ class Option::Float does Option::Base {
         } elsif so $value.FatRat {
             callwith($value.FatRat, :$callback);
         } else {
-            &invalid-value("{self.usage()}: Need float.");
+            invalid-value("{self.usage()}: Need float.");
         }
     }
 
@@ -284,8 +284,8 @@ class Option::String does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             $!default-value = $value;
+            self.set-value($value, :!callback);
         }
-        self.set-value($value, False);
     }
 
     method set-value(Str:D $value, Bool :$callback) {
@@ -294,7 +294,7 @@ class Option::String does Option::Base {
         } elsif so ~$value {
             callwith(~$value, :$callback);
         } else {
-            &invalid-value("{self.usage()}: Need string.");
+            invalid-value("{self.usage()}: Need string.");
         }
     }
 
@@ -311,7 +311,7 @@ class Option::Hash does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Hash {
-                &invalid-value("{self.usage()}: Need a Hash.");
+                invalid-value("{self.usage()}: Need a Hash.");
             }
             $!value = $!default-value = $value;
         }
@@ -325,7 +325,7 @@ class Option::Hash does Option::Base {
         } elsif so $value.pairup {
             %hash.push($value.pairup);
         } else {
-            &invalid-value("{self.usage()}: Need a Pair.");
+            invalid-value("{self.usage()}: Need a Pair.");
         }
         callwith(%hash, :$callback);
     }
@@ -343,7 +343,7 @@ class Option::Array does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Positional {
-                &invalid-value("{self.usage()}: Need an Positional.");
+                invalid-value("{self.usage()}: Need an Positional.");
             }
             $!value = $!default-value = Array.new(|$value);
         }

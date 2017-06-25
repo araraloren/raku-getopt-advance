@@ -1,7 +1,9 @@
 
 use Getopt::Advance::Types;
+use Getopt::Advance::Parser;
 use Getopt::Advance::Group;
 use Getopt::Advance::Option;
+use Getopt::Advance::Argument;
 use Getopt::Advance::Exception;
 use Getopt::Advance::NonOption;
 
@@ -10,17 +12,33 @@ class OptionSet { ... }
 #`(
     :$gnu-style, :$unix-style, :$x-style, :$bsd-style,
 )
-multi sub getopt(
-    @args = @*ARGS,
+ sub getopt (
+    @args = @*ARGS.clone,
     *@optset,
     :&usage,
-    :&parser,
+    :&parser = &ga-parser,
     :$bsd-style,
     :$x-style, # giving priority to x-style
     :$enable-stop #`("--"),
     :$enable-stdin #`("-") ) is export {
-    while +@args {
+    for @optset -> $optset {
+        my @noa = [];
 
+        try {
+            &parser(@args, $optset);
+            CATCH {
+                when X::GA::ParseFailed {
+                    say "ok";
+                }
+
+                default {
+                    note .message;
+                    ...
+                }
+            }
+        }
+
+        return @noa;
     }
 }
 
@@ -36,7 +54,7 @@ class OptionSet {
 
     submethod TWEAK() {
         $!types = Types::Manager.new;
-        $!type.register('b', Option::Boolean)
+        $!types.register('b', Option::Boolean)
               .register('i', Option::Integer)
               .register('s', Option::String)
               .register('a', Option::Array)
@@ -54,7 +72,7 @@ class OptionSet {
         @!main;
     }
 
-    multi method get(::?CLASS::D: Str:D $name --> Option) {
+    method get(::?CLASS::D: Str:D $name --> Option) {
         if %!cache{$name}:exists {
             return %!cache{$name};
         } else {
@@ -175,7 +193,7 @@ class OptionSet {
     }
 
     multi method append(::?CLASS::D: Str:D $opts, :$radio!) {
-        my @opts = [$!tyles.create($_) for $opts.split(';', :skip-empty)];
+        my @opts = [$!types.create($_) for $opts.split(';', :skip-empty)];
         @!radio.push(
             Group::Radio.new(options => @opts)
         );
@@ -184,7 +202,7 @@ class OptionSet {
     }
 
     multi method append(::?CLASS::D: Str:D $opts, :$multi!) {
-        my @opts = [$!tyles.create($_) for $opts.split(';', :skip-empty)];
+        my @opts = [$!types.create($_) for $opts.split(';', :skip-empty)];
         @!radio.push(
             Group::Multi.new(options => @opts)
         );
@@ -224,16 +242,21 @@ class OptionSet {
     }
 
     # non-option operator
+    method non-option(:$all = True, :$pos) {
+        return %!no-pos if ?$pos;
+        return %!no-all;
+    }
+
     multi method has(::?CLASS::D: Int:D $id --> Bool) {
         my @r = [];
-        @r.((sub (\noref) {
+        @r.push((sub (\noref) {
             for @(noref).keys {
                 if $id == $_ {
                     return True;
                 }
             }
             return False;
-        }($_)) for (@!no-all, @!no-pos);
+        }($_))) for (%!no-all, %!no-pos);
         return [||] @r;
     }
 
@@ -245,13 +268,13 @@ class OptionSet {
                     last;
                 }
             }
-        }($_) for (@!no-all, @!no-pos);
+        }($_) for (%!no-all, %!no-pos);
     }
 
-    multi method insert(::?CLASS::D: &callback) returns Int {
+    multi method insert(::?CLASS::D: Str:D $name, :$front) returns Int {
         my $id = $!counter++;
         %!no-all.push(
-            $id => NonOption::All.new( :&callback, optsetref => self)
+            $id => NonOption::Pos.new-front( callback => -> Argument $a {}, :$name)
         );
         return $id;
     }
@@ -259,7 +282,15 @@ class OptionSet {
     multi method insert(::?CLASS::D: &callback, :$front) returns Int {
         my $id = $!counter++;
         %!no-all.push(
-            $id => NonOption::Pos.new-front( :&callback, optsetref => self)
+            $id => NonOption::Pos.new-front( :&callback)
+        );
+        return $id;
+    }
+
+    multi method insert(::?CLASS::D: Str:D $name, &callback, :$front) returns Int {
+        my $id = $!counter++;
+        %!no-all.push(
+            $id => NonOption::Pos.new-front( :&callback, :$name)
         );
         return $id;
     }
@@ -267,15 +298,15 @@ class OptionSet {
     multi method insert(::?CLASS::D: &callback, :$last) returns Int {
         my $id = $!counter++;
         %!no-all.push(
-            $id => NonOption::Pos.new-last( :&callback, optsetref => self)
+            $id => NonOption::Pos.new-last( :&callback)
         );
         return $id;
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, &callback) returns Int {
+    multi method insert(::?CLASS::D: Str:D $name, &callback, :$last) returns Int {
         my $id = $!counter++;
         %!no-all.push(
-            $id => NonOption::Pos.new(:$name,  :&callback, optsetref => self)
+            $id => NonOption::Pos.new-last( :&callback, :$name)
         );
         return $id;
     }
@@ -283,7 +314,7 @@ class OptionSet {
     multi method insert(::?CLASS::D: Int:D $index, &callback) returns Int {
         my $id = $!counter++;
         %!no-all.push(
-            $id => NonOption::Pos.new( :$index, :&callback, optsetref => self)
+            $id => NonOption::Pos.new( :$index, :&callback)
         );
         return $id;
     }
@@ -291,7 +322,7 @@ class OptionSet {
     multi method insert(::?CLASS::D: Str:D $name, Int:D $index, &callback) returns Int {
         my $id = $!counter++;
         %!no-all.push(
-            $id => NonOption::Pos.new( :$name, :$index, :&callback, optsetref => self)
+            $id => NonOption::Pos.new( :$name, :$index, :&callback)
         );
         return $id;
     }
@@ -319,7 +350,16 @@ class OptionSet {
 
     multi method annotation(Int $indent) {}
 
-    method perl() {}
-
-    method clone(*%_) {}
+    method clone(*%_) {
+        self.bless(
+            main => %_<main> // @!main.clone,
+            radio => %_<radio> // @!radio.clone,
+            multi => %_<multi> // @!multi.clone,
+            no-all => %_<no-all> // %!no-all.clone,
+            no-pos => %_<no-pos> // %!no-pos.clone,
+            types => %_<types> // $!types.clone,
+            counter => %_<counter> // $!counter.clone,
+        );
+        nextwith(|%_);
+    }
 }

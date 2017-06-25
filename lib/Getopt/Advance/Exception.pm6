@@ -7,7 +7,7 @@ class X::GA::ParseFailed is X::GA::Exception { }
 
 sub try-next() is export {
     X::GA::ParseFailed
-    .new(message => "Parsing Failed!")
+    .new(message => "Just parsing failed, try next optionset.")
     .throw;
 }
 
@@ -30,9 +30,16 @@ sub raise-error(Str $msg) is export {
     .throw;
 }
 
+class X::GA::NonOptionCallFailed is X::GA::Exception { }
+
+sub may-usage(Str $msg) is export {
+    X::GA::NonOptionCallFailed
+    .new(message => $msg)
+    .throw;
+}
 
 
-
+#`(
 class X::GA::OptionTypeInvalid is X::GA::Exception { }
 
 class X::GA::OptionInvalid is X::GA::Exception { }
@@ -54,3 +61,4 @@ sub invalid-value(Str $msg) is export {
     .new(message => $msg)
     .throw;
 }
+)
