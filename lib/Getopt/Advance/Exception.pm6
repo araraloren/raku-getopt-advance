@@ -5,9 +5,9 @@ class X::GA::Exception is Exception {
 
 class X::GA::ParseFailed is X::GA::Exception { }
 
-sub try-next() is export {
+sub try-next(Str $msg) is export {
     X::GA::ParseFailed
-    .new(message => "Just parsing failed, try next optionset.")
+    .new(message => $msg)
     .throw;
 }
 
