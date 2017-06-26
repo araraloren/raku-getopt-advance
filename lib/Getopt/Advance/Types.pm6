@@ -120,8 +120,8 @@ class Types::Manager {
             raise-error("{$setting.opt-type}: Invalid option type!");
         }
         $option = %!types{$setting.opt-type}.new(
-			long 		=> $setting.opt-short // "",
-            short       => $setting.opt-long // "",
+			short 		=> $setting.opt-short // "",
+            long        => $setting.opt-long // "",
             callback    => &callback,
             optional    => $setting.opt-optional,
             value       => $value,
@@ -138,8 +138,8 @@ class Types::Manager {
             raise-error("{$setting.opt-type}: Invalid option type!");
         }
         $option = %!types{$setting.opt-type}.new(
-			long 		=> $setting.opt-short // "",
-			short       => $setting.opt-long // "",
+			short 		=> $setting.opt-short // "",
+			long        => $setting.opt-long // "",	
             callback    => &callback,
             optional    => $setting.opt-optional,
             value       => $value,
