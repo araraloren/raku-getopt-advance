@@ -17,18 +17,21 @@ class OptionSet { ... }
     *@optset,
     :&usage,
     :&parser = &ga-parser,
+    :$strict = False,
     :$bsd-style,
     :$x-style, # giving priority to x-style
     :$enable-stop #`("--"),
     :$enable-stdin #`("-") ) is export {
-    for @optset -> $optset {
-        my @noa = [];
-
+    my ($index, $count, @noa) = (0, +@optset, []);
+    while $index < $count {
+        my $optset := @optset[$index++];
         try {
             &parser(@args, $optset);
             CATCH {
                 when X::GA::ParseFailed {
-                    say "ok";
+                    if $index == $count {
+                        .throw;
+                    }
                 }
 
                 default {
@@ -37,8 +40,6 @@ class OptionSet { ... }
                 }
             }
         }
-
-        return @noa;
     }
 }
 
