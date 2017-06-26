@@ -8,7 +8,8 @@ my class OptionAndValue {
     has $.optref;
     has $.value;
 
-    method set() {
+    method set-value() {
+        say "\tSET VALUE |{$!optref.usage}| +{$!value}+ ";
         $!optref.set-value($!value, :callback);
     }
 }
@@ -22,7 +23,7 @@ my regex optvalue { .* }
 # check name
 # check value
 # then parse over
-sub ga-parser(@args, $optset) is export {
+sub ga-parser(@args, $optset, :$strict) is export {
     my $count = +@args;
     my @oav = [];
     my @noa = [];
@@ -68,17 +69,23 @@ sub ga-parser(@args, $optset) is export {
                         if $opt.type eq BOOLEAN {
                             $value = True;
                         } elsif ($index + 1 < $count) {
-                            $value = @args[++$index];
+                            unless $strict && @args[$index + 1].start-with('-'|'--'|'--/') {
+                                $value = @args[++$index];
+                            }
                         }
                     }
                     if $value.defined && $opt.match-value($value) {
                         @oav.push(OptionAndValue.new(optref => $opt, :$value));
                         next;
+                    } else {
+                        try-next("Option {$opt.usage} need an argument!");
                     }
+                } else {
+                    try-next("Option {$opt.usage} not correct!");
                 }
+            } else {
+                try-next("Option {$name} not recongnize!");
             }
-            # throw exception
-            try-next();
         }
     }
 
@@ -94,7 +101,7 @@ sub ga-parser(@args, $optset) is export {
     }
 
     #option
-    .set for @oav;
+    .set-value for @oav;
 
     # non-option
     my %all = $optset.non-option(:all);
