@@ -38,14 +38,14 @@ role Option {
     method check() { ... }
     method match-name(Str:D) { ... }
     method match-value(Mu) { ... }
-    method usage() returns Str {
+    method usage(:$bsd-style) returns Str {
         my Str $usage = "";
 
-        $usage ~= "{self.short-prefix}{self.short}"
+        $usage ~= "{$bsd-style ?? "" !! "-"}{self.short}"
             if self.has-short;
         $usage ~= "|"
             if self.has-long && self.has-short;
-        $usage ~= "{self.long-prefix}{self.long}"
+        $usage ~= "{$bsd-style ?? "" !! "--"}{self.long}"
             if self.has-long;
         $usage ~= "=<{self.type}>"
             if self.type ne BOOLEAN;
