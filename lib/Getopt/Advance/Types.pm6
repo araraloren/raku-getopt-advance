@@ -7,7 +7,7 @@ my grammar Grammar::Option {
 		^ <option> $
 	}
 
-	token option {
+	rule option {
 		[
 			<short>? '|' <long>? '=' <type>
 			|
@@ -139,7 +139,7 @@ class Types::Manager {
         }
         $option = %!types{$setting.opt-type}.new(
 			short 		=> $setting.opt-short // "",
-			long        => $setting.opt-long // "",	
+			long        => $setting.opt-long // "",
             callback    => &callback,
             optional    => $setting.opt-optional,
             value       => $value,
