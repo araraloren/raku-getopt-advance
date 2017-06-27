@@ -94,7 +94,7 @@ role Option::Base does Option {
 
     method set-value(Mu $value, Bool :$callback) {
         if $callback.so && &!callback.defined {
-            &!callback(self);
+            &!callback(self, $value);
         }
         $!value = $value;
     }
@@ -213,7 +213,7 @@ class Option::Boolean does Option::Base {
     }
 
     method set-value(Mu $value, Bool :$callback) {
-        callwith($value.so, $callback);
+        self.Option::Base::set-value($value.so, :$callback);
     }
 
     method type() {
@@ -236,9 +236,9 @@ class Option::Integer does Option::Base {
 
     method set-value(Mu:D $value, Bool :$callback) {
         if $value ~~ Int {
-            callsame;
+            self.Option::Base::set-value($value, :$callback);
         } elsif so +$value {
-            callwith(+$value, :$callback);
+            self.Option::Base::set-value(+$value, :$callback);
         } else {
             invalid-value("{self.usage()}: Need integer.");
         }
@@ -263,9 +263,9 @@ class Option::Float does Option::Base {
 
     method set-value(FatRat:D $value, Bool :$callback) {
         if $value ~~ FatRat {
-            callsame;
+            self.Option::Base::set-value($value, :$callback);
         } elsif so $value.FatRat {
-            callwith($value.FatRat, :$callback);
+            self.Option::Base::set-value($value.FatRat, :$callback);
         } else {
             invalid-value("{self.usage()}: Need float.");
         }
@@ -290,9 +290,9 @@ class Option::String does Option::Base {
 
     method set-value(Str:D $value, Bool :$callback) {
         if $value ~~ Str {
-            callsame;
+            self.Option::Base::set-value($value, :$callback);
         } elsif so ~$value {
-            callwith(~$value, :$callback);
+            self.Option::Base::set-value(~$value, :$callback);
         } else {
             invalid-value("{self.usage()}: Need string.");
         }
@@ -327,7 +327,7 @@ class Option::Hash does Option::Base {
         } else {
             invalid-value("{self.usage()}: Need a Pair.");
         }
-        callwith(%hash, :$callback);
+        self.Option::Base::set-value(%hash, :$callback);
     }
 
     method type() {
@@ -353,7 +353,7 @@ class Option::Array does Option::Base {
     method set-value($value, Bool :$callback) {
         my @array = $!value ?? @$!value !! Array.new;
         @array.push($value);
-        callwith(@array, :$callback);
+        self.Option::Base::set-value(@array, :$callback);
     }
 
     method type() {
