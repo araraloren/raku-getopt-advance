@@ -25,6 +25,7 @@ my regex optvalue { .* }
 # then parse over
 sub ga-parser(@args, $optset, :$strict) is export {
     my $count = +@args;
+    my $noa-index = 0;
     my @oav = [];
     my @noa = [];
 
@@ -58,7 +59,7 @@ sub ga-parser(@args, $optset, :$strict) is export {
             }
 
             default {
-                @noa.push(Argument.new(index => $index, value => $args));
+                @noa.push(Argument.new(index => $noa-index++, value => $args));
             }
         }
 
@@ -69,7 +70,7 @@ sub ga-parser(@args, $optset, :$strict) is export {
                         if $opt.type eq BOOLEAN {
                             $value = True;
                         } elsif ($index + 1 < $count) {
-                            unless $strict && @args[$index + 1].start-with('-'|'--'|'--/') {
+                            unless $strict && (so @args[$index + 1].starts-with('-'|'--'|'--/')) {
                                 $value = @args[++$index];
                             }
                         }
@@ -90,11 +91,27 @@ sub ga-parser(@args, $optset, :$strict) is export {
     }
 
     # non-option
+    my %front = $optset.non-option(:front);
+
+    if %front.elems > 0 && +@noa == 0 {
+        try-next("Need front command: < {%front.values>>.name.join("|")} >.");
+    } else {
+        my $matched = False;
+
+        for %front.values() -> $front {
+            $matched ||= $front.($optset, @noa[0]);
+        }
+
+        unless $matched {
+            try-next("Not recongnize front command: {@noa[0].value}.");
+        }
+    }
+
     my %pos = $optset.non-option(:pos);
 
     for %pos.values() -> $pos {
         for @noa -> $noa {
-            if $pos.match-index($count, $noa.index) {
+            if $pos.match-index(+@noa, $noa.index) {
                 $pos.($optset, $noa);
             }
         }

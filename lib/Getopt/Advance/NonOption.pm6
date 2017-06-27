@@ -3,9 +3,12 @@ use Getopt::Advance::Argument;
 use Getopt::Advance::Exception;
 
 constant NOALL  = "all";
+constant NOFRONT= "front";
 constant NOPOS  = "position";
 
 role NonOption {
+    has $.success;
+
     method set-callback(&callback) { ... }
     method has-callback returns Bool { ... }
     method match-index(Int $total, Int $index) { ... }
@@ -18,11 +21,11 @@ class NonOption::All does NonOption {
     has &.callback;
 
     submethod TWEAK(:&callback) {
-        self.set(&callback);
+        self.set-callback(&callback);
     }
 
     method set-callback(
-        &callback where .signature ~~ :($, Argument @) | :(Argument @)
+        &callback # where .signature ~~ :($, Argument @) | :(Argument @)
     ) {
         &!callback = &callback;
     }
@@ -48,6 +51,7 @@ class NonOption::All does NonOption {
                 &!callback(|c.[* - 1]);
             }
         }
+        $!success = True;
     }
 
     method clone(*%_) {
@@ -58,17 +62,67 @@ class NonOption::All does NonOption {
     }
 }
 
-class NonOption::Pos does NonOption {
+class NonOption::Front does NonOption {
     has &.callback;
-    has $.name = "";
-    has $.index = -1;
+    has $.name;
 
     submethod TWEAK(:&callback) {
-        self.set(&callback);
+        self.set-callback(&callback);
     }
 
-    method set-name(Str:D $name) {
-        $!name = $name;
+    method set-callback(
+        &callback #where .signature ~~ :($, Argument $) | :(Argument $)
+    ) {
+        &!callback = &callback;
+    }
+
+    method has-callback() {
+        &!callback.defined;
+    }
+
+    method match-index(Int $total, Int $index) {
+        $index == 0;
+    }
+
+    method type returns Str {
+        NOFRONT;
+    }
+
+    method CALL-ME(|c) {
+        my Argument $arg = c.[* - 1];
+
+        if $!name eq "" || $!name eq $arg.value {
+            given &!callback.signature {
+                when :($, Argument $) {
+                    &!callback(|c);
+                }
+                when :(Argument $) {
+                    &!callback($arg);
+                }
+            }
+            say "\tSET NAME  |{$!name}";
+            $!success = True;
+        } else {
+            $!success = False;
+        }
+    }
+
+    method clone(*%_) {
+        self.bless(
+            callback    => %_<callback> // &!callback.clone,
+            name        => %_<name> // $!name.clone,
+        );
+        nextwith(|%_);
+    }
+}
+
+class NonOption::Pos does NonOption {
+    has &.callback;
+    has $.name;
+    has $.index;
+
+    submethod TWEAK(:&callback) {
+        self.set-callback(&callback);
     }
 
     method set-index(Int:D $index) {
@@ -76,13 +130,9 @@ class NonOption::Pos does NonOption {
     }
 
     method set-callback(
-        &callback where .signature ~~ :($, Argument $) | :(Argument $)
+        &callback # where .signature ~~ :($, Argument $) | :(Argument $)
     ) {
         &!callback = &callback;
-    }
-
-    method has-name returns Bool {
-        $!name.defined;
     }
 
     method has-index returns Bool {
@@ -104,20 +154,16 @@ class NonOption::Pos does NonOption {
     }
 
     method CALL-ME(|c) {
-        my Argument $arg = c.[* - 1];
-
-        if $!name eq "" || $!name eq $arg.value {
-            given &!callback.signature {
-                when :($, Argument $) {
-                    &!callback(|c);
-                }
-                when :(Argument $) {
-                    &!callback($arg);
-                }
+        given &!callback.signature {
+            when :($, Argument $) {
+                &!callback(|c);
             }
-        } else {
-            may-usage("Not recongnize non-option name: {$arg.value}");
+            when :(Argument $) {
+                &!callback(c.[* - 1]);
+            }
         }
+        say "\tSET INDEX |<{$!name}\@{$!index}>";
+        $!success = True;
     }
 
     method clone(*%_) {
