@@ -17,7 +17,7 @@ class OptionSet { ... }
     *@optset,
     :&usage,
     :&parser = &ga-parser,
-    :$strict = False,
+    :$strict = True,
     :$bsd-style,
     :$x-style, # giving priority to x-style
     :$enable-stop #`("--"),
@@ -26,7 +26,7 @@ class OptionSet { ... }
     while $index < $count {
         my $optset := @optset[$index++];
         try {
-            &parser(@args, $optset);
+            &parser(@args, $optset, :$strict);
             CATCH {
                 when X::GA::ParseFailed {
                     if $index == $count {
@@ -50,6 +50,7 @@ class OptionSet {
     has @.multi;
     has %.no-all;
     has %.no-pos;
+    has %.no-front;
     has $!types;
     has $!counter;
 
@@ -243,8 +244,9 @@ class OptionSet {
     }
 
     # non-option operator
-    method non-option(:$all = True, :$pos) {
+    method non-option(:$all = True, :$pos, :$front) {
         return %!no-pos if ?$pos;
+        return %!no-front if ?$front;
         return %!no-all;
     }
 
@@ -257,7 +259,7 @@ class OptionSet {
                 }
             }
             return False;
-        }($_))) for (%!no-all, %!no-pos);
+        }($_))) for (%!no-all, %!no-pos, %!no-front);
         return [||] @r;
     }
 
@@ -269,60 +271,60 @@ class OptionSet {
                     last;
                 }
             }
-        }($_) for (%!no-all, %!no-pos);
+        }($_) for (%!no-all, %!no-pos, %!no-front);
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, :$front) returns Int {
+    method get-front(Str $name) {
+        for %!no-front.values {
+            if .name eq $name {
+                return $_;
+            }
+        }
+    }
+
+    multi method insert-all(::?CLASS::D: &callback) returns Int {
         my $id = $!counter++;
         %!no-all.push(
-            $id => NonOption::Pos.new-front( callback => -> Argument $a {}, :$name)
+            $id => NonOption::All.new( :&callback)
         );
         return $id;
     }
 
-    multi method insert(::?CLASS::D: &callback, :$front) returns Int {
+    multi method insert-front(::?CLASS::D: Str:D $name) returns Int {
         my $id = $!counter++;
-        %!no-all.push(
-            $id => NonOption::Pos.new-front( :&callback)
+        %!no-front.push(
+            $id => NonOption::Front.new( callback => -> Argument $a {}, :$name)
         );
         return $id;
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, &callback, :$front) returns Int {
+    multi method insert-front(::?CLASS::D: Str:D $name, &callback) returns Int {
         my $id = $!counter++;
-        %!no-all.push(
+        %!no-front.push(
+            $id => NonOption::Front.new( :&callback, :$name)
+        );
+        return $id;
+    }
+
+    multi method insert(::?CLASS::D: Str:D $name, &callback, :$front!) returns Int {
+        my $id = $!counter++;
+        %!no-pos.push(
             $id => NonOption::Pos.new-front( :&callback, :$name)
         );
         return $id;
     }
 
-    multi method insert(::?CLASS::D: &callback, :$last) returns Int {
+    multi method insert(::?CLASS::D: Str:D $name, &callback, :$last!) returns Int {
         my $id = $!counter++;
-        %!no-all.push(
-            $id => NonOption::Pos.new-last( :&callback)
-        );
-        return $id;
-    }
-
-    multi method insert(::?CLASS::D: Str:D $name, &callback, :$last) returns Int {
-        my $id = $!counter++;
-        %!no-all.push(
+        %!no-pos.push(
             $id => NonOption::Pos.new-last( :&callback, :$name)
-        );
-        return $id;
-    }
-
-    multi method insert(::?CLASS::D: Int:D $index, &callback) returns Int {
-        my $id = $!counter++;
-        %!no-all.push(
-            $id => NonOption::Pos.new( :$index, :&callback)
         );
         return $id;
     }
 
     multi method insert(::?CLASS::D: Str:D $name, Int:D $index, &callback) returns Int {
         my $id = $!counter++;
-        %!no-all.push(
+        %!no-pos.push(
             $id => NonOption::Pos.new( :$name, :$index, :&callback)
         );
         return $id;
@@ -358,6 +360,7 @@ class OptionSet {
             multi => %_<multi> // @!multi.clone,
             no-all => %_<no-all> // %!no-all.clone,
             no-pos => %_<no-pos> // %!no-pos.clone,
+            no-front => %_<no-front> // %!no-front.clone,
             types => %_<types> // $!types.clone,
             counter => %_<counter> // $!counter.clone,
         );
