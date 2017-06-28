@@ -66,7 +66,10 @@ class OptionSet {
 
     method keys() {
         my @keys = [];
-        @keys.append(.long, .short) for @!main;
+        for @!main {
+            @keys.push(.long) if .has-long;
+            @keys.push(.short)if .has-short; 
+        }
         @keys;
     }
 
@@ -282,7 +285,7 @@ class OptionSet {
         }
     }
 
-    multi method insert-all(::?CLASS::D: &callback) returns Int {
+    multi method insert-main(::?CLASS::D: &callback) returns Int {
         my $id = $!counter++;
         %!no-all.push(
             $id => NonOption::All.new( :&callback)
