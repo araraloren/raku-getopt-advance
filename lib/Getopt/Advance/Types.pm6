@@ -101,6 +101,9 @@ class Types::Manager {
         unless Grammar::Option.parse($str, :actions($action)) {
             raise-error("{$str}: Unable to parse option string!");
         }
+		if $action.opt-deactivate && $action.opt-type ne "b" {
+			raise-error("{$str}: Deactivate style only support boolean option!");
+		}
         return $action;
     }
 
