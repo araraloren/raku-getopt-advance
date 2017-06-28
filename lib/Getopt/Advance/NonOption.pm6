@@ -44,10 +44,10 @@ class NonOption::All does NonOption {
 
     method CALL-ME(|c) {
         given &!callback.signature {
-            when :($, Argument @) {
+            when :($, @) {
                 &!callback(|c);
             }
-            when :(Argument @) {
+            when :(@) {
                 &!callback(|c.[* - 1]);
             }
         }
@@ -93,10 +93,10 @@ class NonOption::Front does NonOption {
 
         if $!name eq "" || $!name eq $arg.value {
             given &!callback.signature {
-                when :($, Argument $) {
+                when :($, $) {
                     &!callback(|c);
                 }
-                when :(Argument $) {
+                when :($) {
                     &!callback($arg);
                 }
             }
@@ -155,10 +155,10 @@ class NonOption::Pos does NonOption {
 
     method CALL-ME(|c) {
         given &!callback.signature {
-            when :($, Argument $) {
+            when :($, $) {
                 &!callback(|c);
             }
-            when :(Argument $) {
+            when :($) {
                 &!callback(c.[* - 1]);
             }
         }
