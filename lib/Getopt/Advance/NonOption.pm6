@@ -10,10 +10,10 @@ role NonOption {
     has $.success;
 
     method set-callback(&callback) { ... }
-    method has-callback returns Bool { ... }
+    method has-callback of Bool { ... }
     method match-index(Int $total, Int $index) { ... }
     method CALL-ME(|c) { ... }
-    method type returns Str { ... }
+    method type of Str { ... }
     method clone(*%_) { ... }
 }
 
@@ -38,7 +38,7 @@ class NonOption::All does NonOption {
         True;
     }
 
-    method type returns Str {
+    method type of Str {
         NOALL;
     }
 
@@ -84,7 +84,7 @@ class NonOption::Front does NonOption {
         $index == 0;
     }
 
-    method type returns Str {
+    method type of Str {
         NOFRONT;
     }
 
@@ -135,11 +135,11 @@ class NonOption::Pos does NonOption {
         &!callback = &callback;
     }
 
-    method has-index returns Bool {
+    method has-index of Bool {
         $!index || $!index >= 0;
     }
 
-    method has-callback returns Bool {
+    method has-callback of Bool {
         &!callback.defined;
     }
 
@@ -149,7 +149,7 @@ class NonOption::Pos does NonOption {
         return $index == $expect-index;
     }
 
-    method type returns Str {
+    method type of Str {
         NOPOS;
     }
 

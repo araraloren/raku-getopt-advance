@@ -7,14 +7,21 @@ my grammar Grammar::Option {
 		^ <option> $
 	}
 
+#`(
+	a|action=b [!/]?;
+	a=b;
+	action=b;
+	a|=b;
+	|action=b;
+	action|=b;
+	|a=b;
+)
 	rule option {
 		[
 			<short>? '|' <long>? '=' <type>
 			|
 			<name> '=' <type>
-		]
-        [ <optional> | <deactivate> ]?
-        [ <optional> | <deactivate> ]?
+		] [ <optional> | <deactivate> ]? [ <optional> | <deactivate> ]?
 	}
 
 	token short {
@@ -44,7 +51,7 @@ my grammar Grammar::Option {
 
 my class Actions::Option {
 	has $.opt-deactivate;
-	has $.opt-optional;
+	has $.opt-optional = True;
 	has $.opt-type;
 	has $.opt-long;
 	has $.opt-short;
@@ -70,7 +77,7 @@ my class Actions::Option {
 	}
 
 	method optional($/) {
-		$!opt-optional = True;
+		$!opt-optional = False;
 	}
 
 	method deactivate($/) {

@@ -10,11 +10,11 @@ constant HASH    is export = "hash";
 
 role Option {
     method value { ... }
-    method long returns Str { ... }
-    method short returns Str { ... }
+    method long of Str { ... }
+    method short of Str { ... }
     method callback { ... }
-    method optional returns Bool { ... }
-    method annotation returns Str { ... }
+    method optional of Bool { ... }
+    method annotation of Str { ... }
     method default-value { ... }
     method set-value(Mu, Bool :$callback) { ... }
     method set-long(Str:D) { ... }
@@ -23,22 +23,22 @@ role Option {
     method set-optional(Mu) { ... }
     method set-annotation(Str:D) { ... }
     method set-default-value(Mu) { ... }
-    method has-value returns Bool { ... }
-    method has-long returns Bool { ... }
-    method has-short returns Bool { ... }
-    method has-callback returns Bool { ... }
-    method has-annotation returns Bool { ... }
-    method has-default-value returns Bool { ... }
+    method has-value of Bool { ... }
+    method has-long of Bool { ... }
+    method has-short of Bool { ... }
+    method has-callback of Bool { ... }
+    method has-annotation of Bool { ... }
+    method has-default-value of Bool { ... }
     method reset-long { ... }
     method reset-short { ... }
     method reset-value { ... }
     method reset-callback { ... }
     method reset-annotation { ... }
-    method type returns Str { ... }
+    method type of Str { ... }
     method check() { ... }
     method match-name(Str:D) { ... }
     method match-value(Mu) { ... }
-    method usage(:$bsd-style) returns Str {
+    method usage(:$bsd-style) of Str {
         my Str $usage = "";
 
         $usage ~= "{$bsd-style ?? "" !! "-"}{self.short}"
@@ -59,7 +59,7 @@ role Option::Base does Option {
     has $.long  = "";
     has $.short = "";
     has &.callback;
-    has $.optional;
+    has $.optional = True;
     has $.annotation;
     has $.value;
     has $.default-value;
@@ -125,27 +125,27 @@ role Option::Base does Option {
         $!default-value = $value;
     }
 
-    method has-value() returns Bool {
+    method has-value() of Bool {
         $!value.defined;
     }
 
-    method has-long() returns Bool {
+    method has-long() of Bool {
         $!long ne "";
     }
 
-    method has-short() returns Bool {
+    method has-short() of Bool {
         $!short ne "";
     }
 
-    method has-callback() returns Bool {
+    method has-callback() of Bool {
         &!callback.defined;
     }
 
-    method has-annotation() returns Bool {
+    method has-annotation() of Bool {
         $!annotation.defined;
     }
 
-    method has-default-value() returns Bool {
+    method has-default-value() of Bool {
         $!default-value.defined;
     }
 
@@ -208,8 +208,13 @@ class Option::Boolean does Option::Base {
                 invalid-value("{self.usage()}: default value must be True in deactivate-style.");
             }
             $!default-value = True;
+            self.set-value(True, :!callback);
+        } else {
+            if $value.defined {
+                $!default-value = $value;
+                self.set-value($value, :!callback);
+            }
         }
-        self.set-value($value, :!callback);
     }
 
     method set-value(Mu $value, Bool :$callback) {
@@ -261,7 +266,7 @@ class Option::Float does Option::Base {
         }
     }
 
-    method set-value(FatRat:D $value, Bool :$callback) {
+    method set-value(Mu:D $value, Bool :$callback) {
         if $value ~~ FatRat {
             self.Option::Base::set-value($value, :$callback);
         } elsif so $value.FatRat {
@@ -324,10 +329,18 @@ class Option::Hash does Option::Base {
             %hash.push($value);
         } elsif so $value.pairup {
             %hash.push($value.pairup);
+        } elsif (my $evalue = self!parse-as-pair($value)) {
+            %hash.push($evalue);
         } else {
             invalid-value("{self.usage()}: Need a Pair.");
         }
         self.Option::Base::set-value(%hash, :$callback);
+    }
+
+    method !parse-as-pair($value) {
+        my regex hkey { .* }
+        my regex comma { ['=>' | ','] }
+        my regex hvalue { .* }
     }
 
     method type() {

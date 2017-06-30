@@ -285,7 +285,7 @@ class OptionSet {
         }
     }
 
-    multi method insert-main(::?CLASS::D: &callback) returns Int {
+    multi method insert-main(::?CLASS::D: &callback) of Int {
         my $id = $!counter++;
         %!no-all.push(
             $id => NonOption::All.new( :&callback)
@@ -293,7 +293,7 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert-front(::?CLASS::D: Str:D $name) returns Int {
+    multi method insert-front(::?CLASS::D: Str:D $name) of Int {
         my $id = $!counter++;
         %!no-front.push(
             $id => NonOption::Front.new( callback => -> Argument $a {}, :$name)
@@ -301,7 +301,7 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert-front(::?CLASS::D: Str:D $name, &callback) returns Int {
+    multi method insert-front(::?CLASS::D: Str:D $name, &callback) of Int {
         my $id = $!counter++;
         %!no-front.push(
             $id => NonOption::Front.new( :&callback, :$name)
@@ -309,7 +309,7 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, &callback, :$front!) returns Int {
+    multi method insert(::?CLASS::D: Str:D $name, &callback, :$front!) of Int {
         my $id = $!counter++;
         %!no-pos.push(
             $id => NonOption::Pos.new-front( :&callback, :$name)
@@ -317,7 +317,7 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, &callback, :$last!) returns Int {
+    multi method insert(::?CLASS::D: Str:D $name, &callback, :$last!) of Int {
         my $id = $!counter++;
         %!no-pos.push(
             $id => NonOption::Pos.new-last( :&callback, :$name)
@@ -325,7 +325,7 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, Int:D $index, &callback) returns Int {
+    multi method insert(::?CLASS::D: Str:D $name, Int:D $index, &callback) of Int {
         my $id = $!counter++;
         %!no-pos.push(
             $id => NonOption::Pos.new( :$name, :$index, :&callback)
