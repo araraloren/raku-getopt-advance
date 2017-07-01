@@ -26,9 +26,9 @@
     },
 	"auth" : "github:araraloren",
     "authors" : "Loren",
-    "source-url"  : "https://github.com/araraloren/perl6-getopt-advance/archive/v0.0.1.zip",
+    "source-url"  : "https://github.com/araraloren/perl6-getopt-advance.git",
     "support" : {
         "bugtracker" : "https://github.com.araraloren/perl6-getopt-advance/issues",
-        "source" : "https://github.com/araraloren/perl6-getopt-advance/tree/v0.0.1"
+        "source" : "https://github.com/araraloren/perl6-getopt-advance.git"
     }
 }
