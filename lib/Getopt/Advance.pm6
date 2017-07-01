@@ -498,7 +498,7 @@ class OptionSet {
             no-all => %_<no-all> // %!no-all.clone,
             no-pos => %_<no-pos> // %!no-pos.clone,
             no-cmd => %_<no-cmd> // %!no-cmd.clone,
+            |%_,
         );
-        nextwith(|%_);
     }
 }
