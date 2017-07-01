@@ -18,9 +18,9 @@ my grammar Grammar::Option {
 )
 	rule option {
 		[
-			<short>? '|' <long>? '=' <type>
-			|
 			<name> '=' <type>
+			|
+			<short>? '|' <long>? '=' <type>
 		] [ <optional> | <deactivate> ]? [ <optional> | <deactivate> ]?
 	}
 
@@ -57,10 +57,14 @@ my class Actions::Option {
 	has $.opt-short;
 
 	method option($/) {
-		without ($<long> | $<short> ) {
+		unless $<long>.defined || $<short>.defined {
 			my $name = $<name>.Str;
 
-			$name.chars > 1 ?? ($!opt-long = $name) !! ($!opt-short = $name);
+			if $name.chars > 1 {
+				$!opt-long = $name;
+			} else {
+				$!opt-short = $name
+			}
 		}
 	}
 
@@ -106,10 +110,10 @@ class Types::Manager {
     sub opt-string-parse(Str $str) {
         my $action = Actions::Option.new;
         unless Grammar::Option.parse($str, :actions($action)) {
-            raise-error("{$str}: Unable to parse option string!");
+            ga-raise-error("{$str}: Unable to parse option string!");
         }
 		if $action.opt-deactivate && $action.opt-type ne "b" {
-			raise-error("{$str}: Deactivate style only support boolean option!");
+			ga-raise-error("{$str}: Deactivate style only support boolean option!");
 		}
         return $action;
     }
@@ -127,7 +131,7 @@ class Types::Manager {
         my $option;
 
         unless %!types{$setting.opt-type} ~~ Option {
-            raise-error("{$setting.opt-type}: Invalid option type!");
+            ga-raise-error("{$setting.opt-type}: Invalid option type!");
         }
         $option = %!types{$setting.opt-type}.new(
 			short 		=> $setting.opt-short // "",
@@ -145,7 +149,7 @@ class Types::Manager {
         my $option;
 
         unless %!types{$setting.opt-type} ~~ Option {
-            raise-error("{$setting.opt-type}: Invalid option type!");
+            ga-raise-error("{$setting.opt-type}: Invalid option type!");
         }
         $option = %!types{$setting.opt-type}.new(
 			short 		=> $setting.opt-short // "",

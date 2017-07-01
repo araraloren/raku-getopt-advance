@@ -1,4 +1,5 @@
 
+use Getopt::Advance::Helper;
 use Getopt::Advance::Types;
 use Getopt::Advance::Parser;
 use Getopt::Advance::Group;
@@ -15,32 +16,49 @@ class OptionSet { ... }
  sub getopt (
     @args = @*ARGS.clone,
     *@optset,
-    :&usage,
+    :&helper = &ga-helper,
+    :$stdout = $*OUT,
+    :$stderr = $*ERR,
     :&parser = &ga-parser,
     :$strict = True,
     :$bsd-style,
-    :$x-style, # giving priority to x-style
-    :$enable-stop #`("--"),
-    :$enable-stdin #`("-") ) is export {
-    my ($index, $count, @noa) = (0, +@optset, []);
+    :$x-style, #`(giving priority to x-style) ) is export {
+    our $*ga-bsd-style = $bsd-style;
+    my ($index, $count, @noa, $optset) = (0, +@optset, []);
+
     while $index < $count {
-        my $optset := @optset[$index++];
+        $optset := @optset[$index++];
         try {
-            &parser(@args, $optset, :$strict);
+            @noa = &parser(
+                @args,
+                $optset,
+                :$strict,
+                :$bsd-style,
+                :$x-style,
+            );
             CATCH {
                 when X::GA::ParseFailed {
                     if $index == $count {
+                        if &ga-helper {
+                            $stderr.say(.message);
+                            &ga-helper($optset, $stdout);
+                        }
                         .throw;
                     }
                 }
 
                 default {
-                    note .message;
+                    if &ga-helper {
+                        $stderr.say(.message);
+                        &ga-helper($optset, $stdout);
+                    }
                     ...
                 }
             }
         }
     }
+
+    return $optset, @noa;
 }
 
 class OptionSet {
@@ -50,7 +68,7 @@ class OptionSet {
     has @.multi;
     has %.no-all;
     has %.no-pos;
-    has %.no-front;
+    has %.no-cmd;
     has $!types;
     has $!counter;
 
@@ -68,7 +86,7 @@ class OptionSet {
         my @keys = [];
         for @!main {
             @keys.push(.long) if .has-long;
-            @keys.push(.short)if .has-short; 
+            @keys.push(.short)if .has-short;
         }
         @keys;
     }
@@ -105,6 +123,10 @@ class OptionSet {
             }
         }
         return False;
+    }
+
+    multi method has(::?CLASS::D: Str:D @names --> Bool) {
+        [&&] [self.has($_) for @names];
     }
 
     multi method remove(::?CLASS::D: Str:D $name --> Bool) {
@@ -146,6 +168,46 @@ class OptionSet {
             }
             return True;
         }
+    }
+
+    multi method remove(::?CLASS::D: Str:D @names --> Bool) {
+        [&&] [self.remove($_) for @names];
+    }
+
+    multi method reset(::?CLASS::D: Str:D $name) {
+        if %!cache{$name}:exists {
+            %!cache{$name}.reset-value;
+        } else {
+            for ^+@!main -> $index {
+                if @!main[$index].match-name($name) {
+                    @!main[$index].reset-value;
+                    last;
+                }
+            }
+        }
+        self;
+    }
+
+    multi method reset(::?CLASS::D: Str:D @names) {
+        self.reset($_) for @names;
+        self;
+    }
+
+    multi method EXISTS-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) {
+        return self.has(key);
+    }
+
+    multi method EXISTS-KEY(::?CLASS::D: Str:D @key) {
+        return [&&] [ self.has($_) for @key ];
+    }
+
+    # NOTICE: this return the value of option
+    multi method AT-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) {
+        return self.get(key).value;
+    }
+
+    multi method AT-KEY(::?CLASS::D: Str:D @key) {
+        return [self.get($_).value for @key];
     }
 
     method set-value(Str:D $name, $value, :$callback = True) {
@@ -190,66 +252,57 @@ class OptionSet {
         self;
     }
 
-    multi method append(::?CLASS::D: *%optpairs) {
-        for %optpairs.pairs {
+    multi method append(::?CLASS::D: *@optpairs where all(@optpairs) ~~ Pair) {
+        for @optpairs {
             @!main.push($!types.create(.key, .value));
         }
         self;
     }
 
-    multi method append(::?CLASS::D: Str:D $opts, :$radio!) {
+    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$radio!) {
         my @opts = [$!types.create($_) for $opts.split(';', :skip-empty)];
+        ga-raise-error("Can not create radio group for only one option") if +@opts <= 1;
         @!radio.push(
-            Group::Radio.new(options => @opts)
+            Group::Radio.new(options => @opts, :$optional, :optsetref(self))
         );
         @!main.append(@opts);
         self;
     }
 
-    multi method append(::?CLASS::D: Str:D $opts, :$multi!) {
+    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$multi!) {
         my @opts = [$!types.create($_) for $opts.split(';', :skip-empty)];
-        @!radio.push(
-            Group::Multi.new(options => @opts)
+        ga-raise-error("Can not create multi group for only one option") if +@opts <= 1;
+        @!multi.push(
+            Group::Multi.new(options => @opts, :$optional, :optsetref(self))
         );
         @!main.append(@opts);
         self;
     }
 
-    multi method append(::?CLASS::D: *%optpairs, :$radio!) {
-        my @opts = [ @!main.push($!types.create(.key, .value)) for %optpairs.pairs];
+    multi method append(::?CLASS::D: :$optional = True, :$radio!, *@optpairs where all(@optpairs) ~~ Pair) {
+        my @opts = [ $!types.create(.key, .value) for @optpairs];
+        ga-raise-error("Can not create radio group for only one option") if +@opts <= 1;
         @!radio.push(
-            Group::Radio.new(options => @opts)
+            Group::Radio.new(options => @opts, :$optional, :optsetref(self))
         );
         @!main.append(@opts);
         self;
     }
 
-    multi method append(::?CLASS::D: *%optpairs, :$multi!) {
-        my @opts = [ @!main.push($!types.create(.key, .value)) for %optpairs.pairs];
-        @!radio.push(
-            Group::Multi.new(options => @opts)
+    multi method append(::?CLASS::D: :$optional = True, :$multi!, *@optpairs where all(@optpairs) ~~ Pair) {
+        my @opts = [ $!types.create(.key, .value) for @optpairs];
+        ga-raise-error("Can not create multi group for only one option") if +@opts <= 1;
+        @!multi.push(
+            Group::Multi.new(options => @opts, :$optional, :optsetref(self))
         );
         @!main.append(@opts);
         self;
-    }
-
-    multi method EXISTS-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) {
-        return self.has(key);
-    }
-
-    # NOTICE: this return the value of option
-    multi method AT-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) {
-        return self.get(key).value;
-    }
-
-    multi method DELETE-KET(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) {
-        return self.remove(key);
     }
 
     # non-option operator
-    method non-option(:$all = True, :$pos, :$front) {
+    method non-option(:$pos, :$cmd) {
         return %!no-pos if ?$pos;
-        return %!no-front if ?$front;
+        return %!no-cmd if ?$cmd;
         return %!no-all;
     }
 
@@ -262,7 +315,7 @@ class OptionSet {
                 }
             }
             return False;
-        }($_))) for (%!no-all, %!no-pos, %!no-front);
+        }($_))) for (%!no-all, %!no-pos, %!no-cmd);
         return [||] @r;
     }
 
@@ -274,15 +327,11 @@ class OptionSet {
                     last;
                 }
             }
-        }($_) for (%!no-all, %!no-pos, %!no-front);
+        }($_) for (%!no-all, %!no-pos, %!no-cmd);
     }
 
-    method get-front(Str $name) {
-        for %!no-front.values {
-            if .name eq $name {
-                return $_;
-            }
-        }
+    multi method EXISTS-KEY(::?CLASS::D: Int:D $id) {
+        self.has($id);
     }
 
     multi method insert-main(::?CLASS::D: &callback) of Int {
@@ -293,23 +342,39 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert-front(::?CLASS::D: Str:D $name) of Int {
+    method get-cmd(Str $name) {
+        for %!no-cmd.values {
+            if .name eq $name {
+                return $_;
+            }
+        }
+    }
+
+    multi method reset(Str $name, :$cmd!) {
+        for %!no-cmd.values {
+            if .name eq $name {
+                .reset-success;
+            }
+        }
+    }
+
+    multi method insert-cmd(::?CLASS::D: Str:D $name) of Int {
         my $id = $!counter++;
-        %!no-front.push(
-            $id => NonOption::Front.new( callback => -> Argument $a {}, :$name)
+        %!no-cmd.push(
+            $id => NonOption::Cmd.new( callback => -> Argument $a {}, :$name)
         );
         return $id;
     }
 
-    multi method insert-front(::?CLASS::D: Str:D $name, &callback) of Int {
+    multi method insert-cmd(::?CLASS::D: Str:D $name, &callback) of Int {
         my $id = $!counter++;
-        %!no-front.push(
-            $id => NonOption::Front.new( :&callback, :$name)
+        %!no-cmd.push(
+            $id => NonOption::Cmd.new( :&callback, :$name)
         );
         return $id;
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, &callback, :$front!) of Int {
+    multi method insert-pos(::?CLASS::D: Str:D $name, &callback, :$front!) of Int {
         my $id = $!counter++;
         %!no-pos.push(
             $id => NonOption::Pos.new-front( :&callback, :$name)
@@ -317,7 +382,7 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, &callback, :$last!) of Int {
+    multi method insert-pos(::?CLASS::D: Str:D $name, &callback, :$last!) of Int {
         my $id = $!counter++;
         %!no-pos.push(
             $id => NonOption::Pos.new-last( :&callback, :$name)
@@ -325,20 +390,12 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert(::?CLASS::D: Str:D $name, Int:D $index, &callback) of Int {
+    multi method insert-pos(::?CLASS::D: Str:D $name, $index where * ~~ Int:D | WhateverCode , &callback) of Int {
         my $id = $!counter++;
         %!no-pos.push(
             $id => NonOption::Pos.new( :$name, :$index, :&callback)
         );
         return $id;
-    }
-
-    multi method EXISTS-KEY(::?CLASS::D: Int:D $id) {
-        self.has($id);
-    }
-
-    multi method DELETE-KET(::?CLASS::D: Int:D $id) {
-        self.remove($id);
     }
 
     method check() {
@@ -350,11 +407,88 @@ class OptionSet {
         .check unless .optional for @!main;
     }
 
-    method usage() {}
+    method usage() {
+        my $usage = "Usage:\n{$*PROGRAM-NAME} ";
 
-    multi method annotation() {}
+        # add command
+        my $command = "";
+        if %!no-cmd.elems > 0 {
+            $command ~= (join "|", %!no-cmd.values>>.usage);
+        }
 
-    multi method annotation(Int $indent) {}
+        # add pos
+        my $front = "";
+        my $pos = "";
+        my $wepos = "";
+        if %!no-pos.elems > 0 {
+            my $fake = 4096;
+            my %kind = classify {
+                $_.index ~~ Int ?? ($_.index == 0 ?? 0 !! 'index' ) !! '-1'
+            }, %!no-pos.values;
+
+            if %kind{0}:exists && %kind<0>.elems > 0 {
+                $front ~= "<";
+                $front ~= (join "|", @(%kind<0>)>>.usage);
+                $front ~= ">";
+            }
+
+            if %kind<index>:exists && %kind<index>.elems > 0 {
+                my %pos = classify { $_.index }, @(%kind<index>);
+
+                for %pos.sort(*.key)>>.value -> $value {
+                    $pos ~= "<";
+                    $pos ~= (join("|", @($value)>>.usage));
+                    $pos ~= "> ";
+                }
+            }
+
+            if %kind{-1}:exists && %kind{-1}.elems > 0 {
+                my %pos = classify { $_.index.($fake) }, @(%kind{-1});
+
+                for %pos.sort(*.key)>>.value -> $value {
+                    $wepos ~= "<";
+                    $wepos ~= (join("|", @($value)>>.usage));
+                    $wepos ~= "> ";
+                }
+            }
+        }
+
+        $usage ~= "[" if $command ne "" or $front ne "";
+        $usage ~= "{$command}" if $command ne "";
+        $usage ~= "|" if $command ne "" and $front ne "";
+        $usage ~= $front if $front ne "";
+        $usage ~= "] " if $command ne "" or $front ne "";
+        $usage ~= $pos;
+
+        for @!main -> $opt {
+            $usage ~= $opt.optional ?? "[{$opt.usage}] " !! "<{$opt.usage}> ";
+        }
+
+        $usage ~= $wepos;
+
+        $usage;
+    }
+
+    method annotation() {
+        return [] if @!main.elems == 0;
+        require Terminal::Table <&array-to-table>;
+        my @annotation;
+
+        for @!main -> $opt {
+            @annotation.push([
+                $opt.usage,
+                $opt.annotation ~ (do {
+                    if $opt.default-value.defined {
+                        "[{$opt.default-value}]";
+                    } else {
+                        "";
+                    }
+                })
+            ]);
+        }
+
+        &array-to-table(@annotation, style => 'none');
+    }
 
     method clone(*%_) {
         self.bless(
@@ -363,9 +497,7 @@ class OptionSet {
             multi => %_<multi> // @!multi.clone,
             no-all => %_<no-all> // %!no-all.clone,
             no-pos => %_<no-pos> // %!no-pos.clone,
-            no-front => %_<no-front> // %!no-front.clone,
-            types => %_<types> // $!types.clone,
-            counter => %_<counter> // $!counter.clone,
+            no-cmd => %_<no-cmd> // %!no-cmd.clone,
         );
         nextwith(|%_);
     }

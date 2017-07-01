@@ -38,19 +38,21 @@ role Option {
     method check() { ... }
     method match-name(Str:D) { ... }
     method match-value(Mu) { ... }
-    method usage(:$bsd-style) of Str {
+    method lprefix { ... }
+    method sprefix { ... }
+    method usage() of Str {
         my Str $usage = "";
 
-        $usage ~= "{$bsd-style ?? "" !! "-"}{self.short}"
+        $usage ~= "{self.sprefix}{self.short}"
             if self.has-short;
         $usage ~= "|"
             if self.has-long && self.has-short;
-        $usage ~= "{$bsd-style ?? "" !! "--"}{self.long}"
+        $usage ~= "{self.lprefix}{self.long}"
             if self.has-long;
         $usage ~= "=<{self.type}>"
             if self.type ne BOOLEAN;
 
-        return self.optional ?? "[{$usage}]" !! "\{{$usage}\}";
+        return $usage;
     }
     method clone(*%_) { ... }
 }
@@ -187,6 +189,10 @@ role Option::Base does Option {
         False;
     }
 
+    method lprefix { '--' }
+
+    method sprefix { '-' }
+
     method clone(*%_) {
         self.bless(
             long        => %_<long> // $!long.clone,
@@ -205,7 +211,7 @@ class Option::Boolean does Option::Base {
     submethod TWEAK(:$value, :$deactivate) {
         if $deactivate {
             if $value.defined && !$value {
-                invalid-value("{self.usage()}: default value must be True in deactivate-style.");
+                ga-invalid-value("{self.usage()}: default value must be True in deactivate-style.");
             }
             $!default-value = True;
             self.set-value(True, :!callback);
@@ -224,6 +230,8 @@ class Option::Boolean does Option::Base {
     method type() {
         "boolean";
     }
+
+    method lprefix { $!default-value ?? '--/' !! '--' }
 
     method match-value(Mu:D) {
         True;
@@ -245,7 +253,7 @@ class Option::Integer does Option::Base {
         } elsif so +$value {
             self.Option::Base::set-value(+$value, :$callback);
         } else {
-            invalid-value("{self.usage()}: Need integer.");
+            ga-invalid-value("{self.usage()}: Need integer.");
         }
     }
 
@@ -272,7 +280,7 @@ class Option::Float does Option::Base {
         } elsif so $value.FatRat {
             self.Option::Base::set-value($value.FatRat, :$callback);
         } else {
-            invalid-value("{self.usage()}: Need float.");
+            ga-invalid-value("{self.usage()}: Need float.");
         }
     }
 
@@ -299,7 +307,7 @@ class Option::String does Option::Base {
         } elsif so ~$value {
             self.Option::Base::set-value(~$value, :$callback);
         } else {
-            invalid-value("{self.usage()}: Need string.");
+            ga-invalid-value("{self.usage()}: Need string.");
         }
     }
 
@@ -316,7 +324,7 @@ class Option::Hash does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Hash {
-                invalid-value("{self.usage()}: Need a Hash.");
+                ga-invalid-value("{self.usage()}: Need a Hash.");
             }
             $!value = $!default-value = $value;
         }
@@ -327,20 +335,72 @@ class Option::Hash does Option::Base {
         my %hash = $!value.defined ?? %$!value !! Hash.new;
         if $value ~~ Pair {
             %hash.push($value);
-        } elsif so $value.pairup {
+        } elsif try so $value.pairup {
             %hash.push($value.pairup);
         } elsif (my $evalue = self!parse-as-pair($value)) {
             %hash.push($evalue);
         } else {
-            invalid-value("{self.usage()}: Need a Pair.");
+            ga-invalid-value("{self.usage()}: Need a Pair.");
         }
         self.Option::Base::set-value(%hash, :$callback);
     }
 
+    my grammar Pair::Grammar {
+        token TOP { ^ <pair> $ }
+
+        proto rule pair {*}
+
+        rule pair:sym<arrow> { <key> '=>' <value> }
+
+        rule pair:sym<colon> { ':' <key> '(' $<value> = (.+ <!before $>) ')' }
+
+    	rule pair:sym<angle> { ':' <key> '<' $<value> = (.+ <!before $>) '>' }
+
+        rule pair:sym<true> { ':' <key> }
+
+        rule pair:sym<false> { ':' '!' <key> }
+
+        token value { .+ }
+
+        token key { <[0..9A..Za..z\-_\'\"]>+ }
+    }
+
+    my class Pair::Actions {
+        method TOP($/) { $/.make: $<pair>.made; }
+
+        method pair:sym<arrow>($/) {
+            $/.make: $<key>.made => $<value>.Str;
+        }
+
+        method pair:sym<colon>($/) {
+            $/.make: $<key>.made => $<value>.Str;
+        }
+
+        method pair:sym<true>($/) {
+            $/.make: $<key>.made => True;
+        }
+
+        method pair:sym<false>($/) {
+            $/.make: $<key>.made => False;
+        }
+
+        method pair:sym<angle>($/) {
+            $/.make: $<key>.made => $<value>.Str;
+        }
+
+        method value($/) {
+            $/.make: ~$/;
+        }
+
+        method key($/) {
+            $/.make: ~$/;
+        }
+    }
+
     method !parse-as-pair($value) {
-        my regex hkey { .* }
-        my regex comma { ['=>' | ','] }
-        my regex hvalue { .* }
+        my $r = Pair::Grammar.parse($value, :actions(Pair::Actions));
+
+        return $r.made if $r;
     }
 
     method type() {
@@ -348,7 +408,7 @@ class Option::Hash does Option::Base {
     }
 
     method match-value(Mu:D $value) {
-        $value ~~ Pair || so $value.pairup;
+        $value ~~ Pair || (try so $value.pairup) || Pair::Grammar.parse($value).so;
     }
 }
 
@@ -356,7 +416,7 @@ class Option::Array does Option::Base {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Positional {
-                invalid-value("{self.usage()}: Need an Positional.");
+                ga-invalid-value("{self.usage()}: Need an Positional.");
             }
             $!value = $!default-value = Array.new(|$value);
         }

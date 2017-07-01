@@ -4,7 +4,7 @@ unit class Argument;
 has $.index;
 has $.value;
 
-method pairup() returns Pair {
+method pairup() of Pair {
     return Pair.new($!index, $!value);
 }
 
@@ -14,4 +14,12 @@ method Str() {
 
 method Int() {
     return $!value.Int;
+}
+
+method clone(*%_) {
+    self.bless(
+        index => %_<index> // $!index.clone,
+        value => %_<value> // $!value.clone,
+    );
+    nextwith(|%_);
 }

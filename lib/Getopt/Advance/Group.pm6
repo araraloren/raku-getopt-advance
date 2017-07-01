@@ -9,7 +9,7 @@ class Group::OptionName {
 role Group {
     has $.optsetref;
     has @.names;
-    has $.optional = False;
+    has $.optional = True;
 
     # @options are names of options in group
     submethod TWEAK(:@options) {
@@ -24,9 +24,9 @@ role Group {
     method usage() {
         my $usage = "";
 
-        $usage ~= $!optional ?? "+\[ " !! "+\{ ";
-        $usage ~= $!optsetref.get($_).usage() for @!names;
-        $usage ~= $!optional ?? " \]+>" !! " \}+";
+        $usage ~= $!optional ?? "+\[ " !! "+\< ";
+        $usage ~= $!optsetref.get(.long eq "" ?? .short !! .long).usage() for @!names;
+        $usage ~= $!optional ?? " \]+" !! " \>+";
         $usage;
     }
 
@@ -67,18 +67,20 @@ role Group {
 
 class Group::Radio does Group {
     method check() {
-        given @!names.grep({ .has-value }) {
+        my $count = 0;
+
+        for @!names {
+            my $name = .long eq "" ?? .short !! .long;
+            $count += 1 if $!optsetref.get($name).has-value;
+        }
+        given $count {
             when 0 {
                 unless $!optional {
-                    X::GA::GroupValueInvalid
-                    .new(message => "Radio option group value is force required!")
-                    .throw;
+                    ga-group-error("{self.usage}: Radio option group value is force required!");
                 }
             }
             when * > 1 {
-                X::GA::GroupValueInvalid
-                .new(message => "Radio group value only allow set one!")
-                .throw;
+                ga-group-error("{self.usage}: Radio group value only allow set one!");
             }
         }
     }
@@ -86,11 +88,15 @@ class Group::Radio does Group {
 
 class Group::Multi does Group {
     method check() {
-        if $!optional {
-            if @!names.grep({ .has-value }) < +@!names {
-                X::GA::GroupValueInvalid
-                .new(message => "Multi option group value is force required!")
-                .throw;
+        unless $!optional {
+            my $count = 0;
+
+            for @!names {
+                my $name = .long eq "" ?? .short !! .long;
+                $count += 1 if $!optsetref.get($name).has-value;
+            }
+            if $count < +@!names {
+                ga-group-error("{self.usage}: Multi option group value is force required!");
             }
         }
     }

@@ -3,43 +3,41 @@ use Getopt::Advance::Argument;
 use Getopt::Advance::Exception;
 
 constant NOALL  = "all";
-constant NOFRONT= "front";
+constant NOCMD  = "cmd";
 constant NOPOS  = "position";
 
 role NonOption {
     has $.success;
+    has &.callback;
 
     method set-callback(&callback) { ... }
-    method has-callback of Bool { ... }
+    method has-callback of Bool { &!callback.defined; }
     method match-index(Int $total, Int $index) { ... }
+    method match-name(Str $name) { ... }
+    method reset-success { $!success = False; }
     method CALL-ME(|c) { ... }
     method type of Str { ... }
     method clone(*%_) { ... }
+    method usage { ... }
 }
 
 class NonOption::All does NonOption {
-    has &.callback;
-
     submethod TWEAK(:&callback) {
         self.set-callback(&callback);
     }
 
     method set-callback(
-        &callback # where .signature ~~ :($, Argument @) | :(Argument @)
+        &callback where .signature ~~ :($, @) | :(@)
     ) {
         &!callback = &callback;
-    }
-
-    method has-callback() {
-        &!callback.defined;
     }
 
     method match-index(Int $total, Int $index) {
         True;
     }
 
-    method type of Str {
-        NOALL;
+    method match-name(Str $name) {
+        True;
     }
 
     method CALL-ME(|c) {
@@ -48,10 +46,14 @@ class NonOption::All does NonOption {
                 &!callback(|c);
             }
             when :(@) {
-                &!callback(|c.[* - 1]);
+                &!callback(c.[* - 1]);
             }
         }
         $!success = True;
+    }
+
+    method type of Str {
+        NOALL;
     }
 
     method clone(*%_) {
@@ -60,10 +62,13 @@ class NonOption::All does NonOption {
         );
         nextwith(|%_);
     }
+
+    method usage() {
+        "Main";
+    }
 }
 
-class NonOption::Front does NonOption {
-    has &.callback;
+class NonOption::Cmd does NonOption {
     has $.name;
 
     submethod TWEAK(:&callback) {
@@ -71,40 +76,34 @@ class NonOption::Front does NonOption {
     }
 
     method set-callback(
-        &callback #where .signature ~~ :($, Argument $) | :(Argument $)
+        &callback where .signature ~~ :($, $) | :($)
     ) {
         &!callback = &callback;
-    }
-
-    method has-callback() {
-        &!callback.defined;
     }
 
     method match-index(Int $total, Int $index) {
         $index == 0;
     }
 
-    method type of Str {
-        NOFRONT;
+    method match-name(Str $name) {
+        $!name eq $name;
     }
 
     method CALL-ME(|c) {
-        my Argument $arg = c.[* - 1];
-
-        if $!name eq "" || $!name eq $arg.value {
-            given &!callback.signature {
-                when :($, $) {
-                    &!callback(|c);
-                }
-                when :($) {
-                    &!callback($arg);
-                }
+        given &!callback.signature {
+            when :($, @) {
+                &!callback(|c);
             }
-            say "\tSET NAME  |{$!name}";
-            $!success = True;
-        } else {
-            $!success = False;
+            when :(@) {
+                &!callback(c.[* - 1]);
+            }
         }
+        say "\tSET NAME  |{$!name}";
+        $!success = True;
+    }
+
+    method type of Str {
+        NOCMD;
     }
 
     method clone(*%_) {
@@ -114,15 +113,21 @@ class NonOption::Front does NonOption {
         );
         nextwith(|%_);
     }
+
+    method usage() {
+        $!name;
+    }
 }
 
 class NonOption::Pos does NonOption {
-    has &.callback;
     has $.name;
     has $.index;
 
-    submethod TWEAK(:&callback) {
+    submethod TWEAK(:&callback, :$index) {
         self.set-callback(&callback);
+        if $index ~~ Int && $index < 0 {
+            &ga-raise-error("Index should be positive number!");
+        }
     }
 
     method set-index(Int:D $index) {
@@ -135,22 +140,14 @@ class NonOption::Pos does NonOption {
         &!callback = &callback;
     }
 
-    method has-index of Bool {
-        $!index || $!index >= 0;
-    }
-
-    method has-callback of Bool {
-        &!callback.defined;
-    }
-
     method match-index(Int $total, Int $index) {
         my $expect-index = $!index ~~ WhateverCode ??
-            $index.($total) !! $!index;
+            $!index.($total) !! $!index;
         return $index == $expect-index;
     }
 
-    method type of Str {
-        NOPOS;
+    method match-name(Str $name) {
+        $!name eq $name;
     }
 
     method CALL-ME(|c) {
@@ -162,8 +159,12 @@ class NonOption::Pos does NonOption {
                 &!callback(c.[* - 1]);
             }
         }
-        say "\tSET INDEX |<{$!name}\@{$!index}>";
+        say "\tSET INDEX |<{$!name}\@{$!index.perl}>";
         $!success = True;
+    }
+
+    method type of Str {
+        NOPOS;
     }
 
     method clone(*%_) {
@@ -173,6 +174,10 @@ class NonOption::Pos does NonOption {
             index       => %_<index> // $!index.clone,
         );
         nextwith(|%_);
+    }
+
+    method usage() {
+        "{$!name}";
     }
 
     method new-front(*%_) {
