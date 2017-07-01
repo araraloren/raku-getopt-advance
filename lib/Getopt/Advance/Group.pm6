@@ -56,12 +56,12 @@ role Group {
     method check() { ... }
 
     method clone(*%_) {
-        self.bless(
+        nextwith(
             optsetref => %_<optsetref> // $!optsetref,
             names => %_<names> // @!names.clone,
             optional => %_<optional> // $!optional,
+            |%_
         );
-        nextwith(|%_);
     }
 }
 

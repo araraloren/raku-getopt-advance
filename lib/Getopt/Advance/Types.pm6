@@ -164,9 +164,9 @@ class Types::Manager {
     }
 
 	method clone(*%_) {
-		self.bless(
+		nextwith(
 			types => %_<types> // %!types.clone,
+			|%_,
 		);
-		nextwith(|%_);
 	}
 }

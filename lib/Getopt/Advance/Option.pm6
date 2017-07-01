@@ -194,16 +194,16 @@ role Option::Base does Option {
     method sprefix { '-' }
 
     method clone(*%_) {
-        self.bless(
+        nextwith(
             long        => %_<long> // $!long.clone,
             short       => %_<short> // $!short.clone,
             callback    => %_<callback> // &!callback.clone,
             optional    => %_<optional> // $!optional.clone,
             annotation  => %_<annotation> // $!annotation.clone,
             value       => %_<value> // $!value.clone,
-            default-value=> %_<default-value> // $!default-value.clone
+            default-value=> %_<default-value> // $!default-value.clone,
+            |%_
         );
-        nextwith(|%_);
     }
 }
 

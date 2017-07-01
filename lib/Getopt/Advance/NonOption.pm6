@@ -57,10 +57,10 @@ class NonOption::All does NonOption {
     }
 
     method clone(*%_) {
-        self.bless(
+        nextwith(
             callback    => %_<callback> // &!callback.clone,
+            |%_
         );
-        nextwith(|%_);
     }
 
     method usage() {
@@ -107,11 +107,11 @@ class NonOption::Cmd does NonOption {
     }
 
     method clone(*%_) {
-        self.bless(
+        nextwith(
             callback    => %_<callback> // &!callback.clone,
             name        => %_<name> // $!name.clone,
+            |%_
         );
-        nextwith(|%_);
     }
 
     method usage() {
@@ -168,12 +168,12 @@ class NonOption::Pos does NonOption {
     }
 
     method clone(*%_) {
-        self.bless(
+        nextwith(
             callback    => %_<callback> // &!callback.clone,
             name        => %_<name> // $!name.clone,
             index       => %_<index> // $!index.clone,
+            |%_
         );
-        nextwith(|%_);
     }
 
     method usage() {

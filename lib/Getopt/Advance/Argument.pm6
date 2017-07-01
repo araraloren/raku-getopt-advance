@@ -17,9 +17,9 @@ method Int() {
 }
 
 method clone(*%_) {
-    self.bless(
+    nextwith(
         index => %_<index> // $!index.clone,
         value => %_<value> // $!value.clone,
+        |%_
     );
-    nextwith(|%_);
 }
