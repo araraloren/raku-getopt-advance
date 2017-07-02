@@ -1,7 +1,10 @@
 
 use Test;
 use Getopt::Advance;
+use Getopt::Advance::Helper;
 use Getopt::Advance::Exception;
+
+plan 2;
 
 {
     my OptionSet $optset .= new;
@@ -9,7 +12,7 @@ use Getopt::Advance::Exception;
     $optset.insert-cmd("plus");
     $optset.insert-cmd("multi");
     $optset.insert-pos("other", :front, sub ($arg) {
-        &ga-try-next("throw an exception");
+        &ga-try-next("want try next optionset");
     });
     $optset.insert-pos("type", 1, sub ($arg) {
         say $arg;
@@ -24,5 +27,9 @@ use Getopt::Advance::Exception;
 
     dies-ok {
         getopt(["addx", ], $optset);
+    }, "auto helper";
+
+    dies-ok {
+        getopt(["addx", ], $optset, helper => &ga-helper2);
     }, "auto helper";
 }

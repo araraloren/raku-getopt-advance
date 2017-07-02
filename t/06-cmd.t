@@ -12,11 +12,11 @@ $optset.insert-cmd("multi");
 
 &main(|getopt(<plus 1 2 3 4 5 6 7 8 9 10>, $optset,));
 
-$optset.reset("plus", :cmd);
+$optset.reset-cmd("plus");
 
 &main(|getopt(<multi 1 2 3 4 5 6 7 8 9 10>, $optset,));
 
-$optset.reset("multi", :cmd);
+$optset.reset-cmd("multi");
 
 $optset.insert-cmd("join", sub __main($, @noa) {
     @noa.shift;
