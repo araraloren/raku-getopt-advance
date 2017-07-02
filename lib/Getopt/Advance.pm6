@@ -491,7 +491,7 @@ class OptionSet {
     }
 
     method clone(*%_) {
-        self.bless(
+        nextwith(
             main => %_<main> // @!main.clone,
             radio => %_<radio> // @!radio.clone,
             multi => %_<multi> // @!multi.clone,
