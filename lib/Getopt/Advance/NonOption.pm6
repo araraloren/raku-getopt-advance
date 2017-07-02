@@ -98,7 +98,6 @@ class NonOption::Cmd does NonOption {
                 &!callback(c.[* - 1]);
             }
         }
-        say "\tSET NAME  |{$!name}";
         $!success = True;
     }
 
@@ -159,7 +158,6 @@ class NonOption::Pos does NonOption {
                 &!callback(c.[* - 1]);
             }
         }
-        say "\tSET INDEX |<{$!name}\@{$!index.perl}>";
         $!success = True;
     }
 
