@@ -10,21 +10,56 @@ use Getopt::Advance::NonOption;
 
 class OptionSet { ... }
 
+proto sub getopt(|) { * }
+
 #`(
     :$gnu-style, :$unix-style, :$x-style, :$bsd-style,
 )
- sub getopt (
-    @args = @*ARGS.clone,
-    *@optset,
+multi sub getopt (
+    *@optset where all(@optset) ~~ OptionSet,
     :&helper = &ga-helper,
     :$stdout = $*OUT,
     :$stderr = $*ERR,
     :&parser = &ga-parser,
     :$strict = True,
+    :$autohv = False,
+    :$version,
+    :$bsd-style,
+    :$x-style) is export {
+    samewith(
+        @*ARGS ?? @*ARGS.clone !! $[],
+        |@optset,
+        :&helper,
+        :$stdout,
+        :$stderr,
+        :&parser,
+        :$strict,
+        :$autohv,
+        :$version,
+        :$bsd-style,
+        :$x-style
+    );
+}
+
+multi sub getopt (
+    @args,
+    *@optset where all(@optset) ~~ OptionSet,
+    :&helper = &ga-helper,
+    :$stdout = $*OUT,
+    :$stderr = $*ERR,
+    :&parser = &ga-parser,
+    :$strict = True,
+    :$autohv = False,
+    :$version,
     :$bsd-style,
     :$x-style, #`(giving priority to x-style) ) is export {
     our $*ga-bsd-style = $bsd-style;
     my ($index, $count, @noa, $optset) = (0, +@optset, []);
+    my &auto-helper = -> $optset {
+        with &helper {
+            &helper($optset, $stdout);
+        }
+    };
 
     while $index < $count {
         $optset := @optset[$index++];
@@ -36,25 +71,36 @@ class OptionSet { ... }
                 :$bsd-style,
                 :$x-style,
             );
+            last;
             CATCH {
                 when X::GA::ParseFailed {
                     if $index == $count {
-                        if &ga-helper {
-                            $stderr.say(.message);
-                            &ga-helper($optset, $stdout);
-                        }
+                        &auto-helper($optset);
+                        $stderr.say(.message);
                         .throw;
                     }
                 }
 
+                when X::GA::WantPrintHelper {
+                    &auto-helper($optset);
+                    exit (0);
+                }
+
                 default {
-                    if &ga-helper {
-                        $stderr.say(.message);
-                        &ga-helper($optset, $stdout);
-                    }
-                    ...
+                    &auto-helper($optset);
+                    $stderr.say(.message);
+                    .throw;
                 }
             }
+        }
+    }
+
+    if $autohv {
+        if $optset.has('version') && $optset<version> {
+            &ga-versioner($version, $stdout);
+        }
+        if $optset.has('help') && $optset<help> {
+            &auto-helper($optset);
         }
     }
 
@@ -300,11 +346,6 @@ class OptionSet {
     }
 
     # non-option operator
-    method non-option(:$pos, :$cmd) {
-        return %!no-pos if ?$pos;
-        return %!no-cmd if ?$cmd;
-        return %!no-all;
-    }
 
     multi method has(::?CLASS::D: Int:D $id --> Bool) {
         my @r = [];
@@ -334,15 +375,19 @@ class OptionSet {
         self.has($id);
     }
 
-    multi method insert-main(::?CLASS::D: &callback) of Int {
-        my $id = $!counter++;
-        %!no-all.push(
-            $id => NonOption::All.new( :&callback)
-        );
-        return $id;
+    method get-main() {
+        return %!no-all;
     }
 
-    method get-cmd(Str $name) {
+    multi method get-cmd() {
+        %!no-cmd;
+    }
+
+    multi method get-pos() {
+        %!no-pos;
+    }
+
+    multi method get-cmd(Str $name) {
         for %!no-cmd.values {
             if .name eq $name {
                 return $_;
@@ -350,12 +395,52 @@ class OptionSet {
         }
     }
 
-    multi method reset(Str $name, :$cmd!) {
+    multi method get-pos(Str $name, $index) {
+        for %!no-pos.values {
+            if .name eq $name && .match-index(4096, $index) {
+                return $_;
+            }
+        }
+    }
+
+    multi method get-cmd(Int $id) {
+        %!no-cmd{$id};
+    }
+
+    multi method get-pos(Int $id) {
+        %!no-pos{$id};
+    }
+
+    multi method reset-cmd(Str $name) {
         for %!no-cmd.values {
             if .name eq $name {
                 .reset-success;
             }
         }
+    }
+
+    multi method reset-cmd(Int $id) {
+        %!no-cmd{$id}.reset-success;
+    }
+
+    multi method reset-pos(Str $name, $index) {
+        for %!no-pos.values {
+            if .name eq $name && .match-index(4096, $index) {
+                .reset-success;
+            }
+        }
+    }
+
+    multi method reset-pos(Int $id) {
+        %!no-pos{$id}.reset-success;
+    }
+
+    multi method insert-main(::?CLASS::D: &callback) of Int {
+        my $id = $!counter++;
+        %!no-all.push(
+            $id => NonOption::All.new( :&callback)
+        );
+        return $id;
     }
 
     multi method insert-cmd(::?CLASS::D: Str:D $name) of Int {
@@ -465,6 +550,8 @@ class OptionSet {
         }
 
         $usage ~= $wepos;
+
+        $usage ~= "*\@args" if %!no-all.elems > 0;
 
         $usage;
     }
