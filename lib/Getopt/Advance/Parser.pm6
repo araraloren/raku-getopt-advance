@@ -9,7 +9,6 @@ my class OptionValueSetter {
     has $.value;
 
     method set-value() {
-        say "\tSET VALUE |{$!optref.usage}| +{$!value}+ ";
         $!optref.set-value($!value, :callback);
     }
 }
@@ -144,8 +143,8 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style) is export {
     }
 
     # non-option
-    my %cmd = $optset.non-option(:cmd);
-    my %pos = $optset.non-option(:pos);
+    my %cmd = $optset.get-cmd();
+    my %pos = $optset.get-pos();
 
     if %cmd.elems > 0 {
         if +@noa == 0 {
@@ -189,7 +188,7 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style) is export {
     .set-value for @oav;
 
     # non-option
-    my %all = $optset.non-option(:main);
+    my %all = $optset.get-main();
 
     for %all.values() -> $all {
         $all.($optset, @noa);
@@ -344,12 +343,12 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style, :$bsd-style!) is export
     }
 
     # non-option
-    my %cmd = $optset.non-option(:cmd);
-    my %pos = $optset.non-option(:pos);
+    my %cmd = $optset.get-cmd();
+    my %pos = $optset.get-pos();
 
     if %cmd.elems > 0 {
         if +@noa == 0 {
-            ga-try-next("Need command: < {%cmd.values>>.name.join("|")} >.");
+            ga-try-next("Need command: < {%cmd.values>>.usage.join("|")} >.");
         } else {
             my $matched = False;
 
@@ -389,7 +388,7 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style, :$bsd-style!) is export
     .set-value for @oav;
 
     # non-option
-    my %all = $optset.non-option(:main);
+    my %all = $optset.get-main();
 
     for %all.values() -> $all {
         $all.($optset, @noa);
