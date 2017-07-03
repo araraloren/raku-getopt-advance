@@ -7,12 +7,6 @@ use Getopt::Advance::Exception;
 my @files = [];
 my OptionSet $optset .= new;
 
-$optset.append(
-    "h|help=b"      => "print this help.",
-    "v|version=b"   => "print program version.",
-    "?=b"           => "same as -h.",
-    :multi
-);
 $optset.insert-pos(
     "directory",
     0,
@@ -21,12 +15,11 @@ $optset.insert-pos(
         @files = gather &find($dirarg.value.IO);
     }
 );
-$optset.push(
-    'size=i',
-    'the minimum size limit of file.',
-    callback => sub ($, $size) {
-        @files = @files.grep({ .s() >= $size.Int; });
-    }
+$optset.append(
+    "h|help=b"      => "print this help.",
+    "v|version=b"   => "print program version.",
+    "?=b"           => "same as -h.",
+    :multi
 );
 $optset.append(
     'd=b' => 'specify file type to directory',
@@ -40,8 +33,15 @@ for <d l f> -> $t {
         -> $, $ { @files = @files.grep({ ."{$t}"(); }); }
     );
 }
+$optset.push(
+    'size=i',
+    'the minimum size limit of file.',
+    callback => sub ($, $size) {
+        @files = @files.grep({ .s() >= $size.Int; });
+    }
+);
 $optset.insert-main(
-    sub ($optset, @args) {
+    sub main($optset, @args) {
         if $optset.get-pos('directory', 0).?success {
             @args.shift;
         } else {
