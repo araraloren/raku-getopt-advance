@@ -1,6 +1,5 @@
 #!/usr/bin/env perl6
 
-use MONKEY-SEE-NO-EVAL;
 use Getopt::Advance;
 use Getopt::Advance::Helper;
 use Getopt::Advance::Exception;
@@ -25,8 +24,8 @@ $optset.insert-pos(
 $optset.push(
     'size=i',
     'the minimum size limit of file.',
-    callback => sub ($, $sizearg) {
-        @files = @files.grep({ .s() >= $sizearg.value.Int; });
+    callback => sub ($, $size) {
+        @files = @files.grep({ .s() >= $size.Int; });
     }
 );
 $optset.append(
