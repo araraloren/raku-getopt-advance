@@ -55,7 +55,7 @@ sub ga-helper2($optset, $outfh, :$table-format) is export {
             $usage ~= $optset.get-main().elems > 0 ?? "*\@args\n" !! "\n";
         }
 
-        $outfh.say("{$usage}\n");
+        $outfh.say("{$usage}");
         $outfh.say(.join("  "), "\n") for @($optset.annotation());
         $outfh.say("");
     } else {
