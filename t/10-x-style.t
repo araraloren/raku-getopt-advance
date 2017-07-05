@@ -7,18 +7,18 @@ plan 4;
 
 my OptionSet $optset .= new;
 
-$optset.push("h|help=b");
-$optset.push("v|version=b", "print program version.");
-$optset.push("c|count=i");
+$optset.push("help|=b");
+$optset.push("version|=b", "print program version.");
+$optset.push("count|=i");
 $optset.push("?=b");
 
 getopt(
-    ["-hvc", "42", "-?"],
+    ["-count", "42", "-?", '-help', '-version'],
     $optset,
     :x-style
 );
 
-ok $optset<h>, "bsd-style set help";
-ok $optset<v>, "bsd-style set version";
-ok $optset<?>, "bsd-style set ?";
-is $optset<c>, 42;
+ok $optset<help>, "x-style set help";
+ok $optset<version>, "x-style set version";
+ok $optset<count>, "x-style set ?";
+is $optset<count>, 42;
