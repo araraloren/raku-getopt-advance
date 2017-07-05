@@ -40,6 +40,7 @@ role Option {
     method match-value(Mu) { ... }
     method lprefix { ... }
     method sprefix { ... }
+    method need-argument of Bool { True; }
     method usage() of Str {
         my Str $usage = "";
 
@@ -232,6 +233,8 @@ class Option::Boolean does Option::Base {
     }
 
     method lprefix { $!default-value ?? '--/' !! '--' }
+
+    method need-argument of Bool { False; }
 
     method match-value(Mu:D) {
         True;
