@@ -39,11 +39,18 @@ grammar Option::Grammar {
 	}
 }
 
+enum Parser::Type (
+    :LONG-X(1),
+    :SHORT(2),
+    :WITH-ARG(3),
+    :COMPONENT(4),
+);
+
 class Option::Actions {
 	has $.name;
 	has $.value;
 	has $.long;
-    has $!can-throw = False;
+    has $.type;
 
 	method option:sym<s>($/) {
 		$!name = ~$<optname>;
@@ -79,8 +86,12 @@ class Option::Actions {
 		$!long  = False;
 	}
 
-	# this check include unix style i.e. '-x'
-	method guess-option($optset, &get-value, $can-throw) {
+	# this check include gnu style and x-style i.e. '--foo' '-foo'
+	method guess-long-x-option($optset, &get-value, $can-throw) {
+        if (not $!long) && ($!name.chars < 2) {
+            &ga-try-next("Option {$!name} not recongnized!") if $can-throw;
+            return ();
+        }
         if $optset.get($!name) -> $opt {
             if $!name eq ($!long ?? $opt.long !! $opt.short) {
                 without $!value {
@@ -91,6 +102,7 @@ class Option::Actions {
         			}
         		}
                 if $!value.defined && $opt.match-value($!value) {
+                    $!type = Parser::Type::LONG-X;
                     return ($opt, $!value);
                 } elsif $can-throw {
                     &ga-try-next("{$opt.usage}: {$!value} not correct!");
@@ -98,6 +110,34 @@ class Option::Actions {
             }
         }
         &ga-try-next("Option {$!name} not recongnized!") if $can-throw;
+        return ();
+	}
+
+    # short-style '-a'
+	method guess-short-option($optset, &get-value, $can-throw) {
+        if $!name.chars > 1 {
+            &ga-try-next("Option {$!name} not recongnized!") if $can-throw;
+            return ();
+        }
+        if $optset.get($!name) -> $opt {
+            if $!name eq $opt.short {
+                without $!value {
+        			if not $opt.need-argument {
+        				$!value = True;
+        			} else {
+        				$!value = &get-value();
+        			}
+        		}
+                if $!value.defined && $opt.match-value($!value) {
+                    $!type = Parser::Type::SHORT;
+                    return ($opt, $!value);
+                } elsif $can-throw {
+                    &ga-try-next("{$opt.usage}: {$!value} not correct!");
+                }
+            }
+        }
+        &ga-try-next("Option {$!name} not recongnized!") if $can-throw;
+        return ();
 	}
 
 	# this assume first char is an option, and left is argument
@@ -107,12 +147,14 @@ class Option::Actions {
 
 			if $optset.get($optname) -> $opt {
 				if $optname eq $opt.short {
+                    $!type = Parser::Type::WITH-ARG;
 					return ($opt, $value);
 				}
 			}
 		}
         &ga-try-next("Option {$!name} not recongnized!")
             if $can-throw;
+        return ();
 	}
 
 	method guess-component-option($optset, &get-value, $can-throw) {
@@ -140,23 +182,99 @@ class Option::Actions {
         			}
         		}
                 if $!value.defined && $opt.match-value($!value) {
-                    return ($opt, $!value);
+                    $!type = Parser::Type::COMPONENT;
+                    return ($!name, $!value);
                 } elsif $can-throw {
                     &ga-try-next("{$opt.usage}: {$!value} not correct!");
                 }
-                @opts.pop();
-                return ($opt, $!value, @opts);
             }
         }
         &ga-try-next("Option {$!name} not recongnized!")
             if $can-throw;
+        return ();
 	}
 }
 
 # check name
 # check value
 # then parse over
-multi sub ga-parser(@args, $optset, :$strict, :$x-style, :$bsd-style!) is export {
+multi sub ga-parser(@args, $optset, :$strict, :$x-style where :!so, :$bsd-style) of Array is export {
+    my $count = +@args;
+    my $noa-index = 0;
+    my @oav = [];
+    my @noa = [];
+
+    loop (my $index = 0;$index < $count;$index++) {
+        my $args := @args[$index];
+        my ($name, $value, $long);
+        my $actions = Option::Actions.new;
+        my &get-value = sub () {
+            if ($index + 1 < $count) {
+                # $index increment when everything ok
+                # and $value would be available in next guess
+                # when match-value failed or exception will be throwed
+                unless $strict && (so @args[$index + 1].starts-with('-'|'--'|'--/')) {
+                    return @args[++$index];
+                }
+            }
+        };
+
+        # not in x-style
+        if Option::Grammar.parse($args, :$actions) {
+            my @ret = $actions.long ??
+                $actions.guess-long-x-option($optset, &get-value, True) !!
+                (
+                    $actions.guess-short-option($optset, &get-value, False) ||
+                    $actions.guess-with-argument($optset, False) ||
+                    $actions.guess-component-option($optset, &get-value, False) ||
+                    $actions.guess-long-x-option($optset, &get-value, True)
+                );
+            if +@ret > 0 {
+                given $actions.type {
+                    when Parser::Type::COMPONENT {
+                        my @opts = @ret[0].comb;
+                        @oav.push(OptionValueSetter.new(
+                            optref => @opts[* - 1],
+                            value  => @ret[1],
+                        ));
+                        @oav.push(OptionValueSetter.new(
+                            optref => $optset.get($_), :value
+                        )) for @opts[0 ... * - 2];
+                    }
+                    default {
+                        @oav.push(OptionValueSetter.new(
+                            optref => @ret[0],
+                            value  => @ret[1],
+                        ));
+                    }
+                }
+            }
+        } else {
+            my @ret = $bsd-style ?? &process-bsd-style($optset, $args) !! [];
+            if +@ret > 0 {
+                @oav.append(@ret);
+            } else {
+                @noa.push(Argument.new(index => $noa-index++, value => $args));
+            }
+        }
+    }
+
+    # call callback of non-option
+    &process-pos($optset, @noa);
+    # set value before main
+    .set-value for @oav;
+    # call main
+    &process-main($optset, @noa);
+    # check option group and value optional
+    $optset.check();
+
+    return @noa;
+}
+
+# check name
+# check value
+# then parse over
+multi sub ga-parser(@args, $optset, :$strict, :$x-style where :so, :$bsd-style) of Array is export {
     my $count = +@args;
     my $noa-index = 0;
     my @oav = [];
@@ -175,80 +293,81 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style, :$bsd-style!) is export
         };
 
         if Option::Grammar.parse($args, :$actions) {
-            my @ret;
-
-            if $actions.long {
-                @ret = $actions.guess-option($optset, &get-value, True);
-                @oav.push(OptionValueSetter.new(
-                    optref => @ret[0],
-                    value  => @ret[1],
-                ));
-            } else {
-                my &guess-x-style = -> $bool {
-                    @ret = $actions.guess-option($optset, &get-value, $bool);
-                    if +@ret > 0 {
+            my @ret = $actions.long ??
+                $actions.guess-long-x-option($optset, &get-value, True) !!
+                (
+                    $actions.guess-long-x-option($optset, &get-value, False) ||
+                    $actions.guess-short-option($optset, &get-value, False) ||
+                    $actions.guess-with-argument($optset, False) ||
+                    $actions.guess-component-option($optset, &get-value, True)
+                );
+            if +@ret > 0 {
+                given $actions.type {
+                    when Parser::Type::COMPONENT {
+                        my @opts = @ret[0].comb;
+                        @oav.push(OptionValueSetter.new(
+                            optref => @opts[* - 1],
+                            value  => @ret[1],
+                        ));
+                        @oav.push(OptionValueSetter.new(
+                            optref => $optset.get($_), :value
+                        )) for @opts[0 ... * - 2];
+                    }
+                    default {
                         @oav.push(OptionValueSetter.new(
                             optref => @ret[0],
                             value  => @ret[1],
                         ));
-                    }
-                    +@ret > 0;
-                };
-                my &guess-other-style = -> $bool {
-                    @ret = $actions.guess-with-argument($optset, False);
-                    if +@ret > 0 {
-                        @oav.push(OptionValueSetter.new(
-                            optref => @ret[0],
-                            value  => @ret[1],
-                        ));
-                        +@ret > 0;
-                    } else {
-                        my ($opt, $value, @bopts) = $actions.guess-component-option($optset, &get-value, $bool);
-
-                        with $opt {
-                            @oav.push(OptionValueSetter.new(
-                                optref => $opt,
-                                value  => $value,
-                            ));
-                            @oav.push(OptionValueSetter.new(optref => $optset.get($_), :value))
-                                for @bopts;
-                        }
-                        $opt.defined;
-                    }
-                }
-                if $x-style {
-                    unless &guess-x-style(False) {
-                        &guess-other-style(True);
-                    }
-                } else {
-                    unless &guess-other-style(False) {
-                        &guess-x-style(True);
                     }
                 }
             }
         } else {
-            if $bsd-style {
-                my $bsd-ok = False;
-                my $check = True;
-                my @options = $args.comb();
-
-                for @options {
-                    $check = $check && $optset.has($_)
-                        && $optset.get($_).type eq BOOLEAN;
-                }
-                if $check {
-                    @oav.push(OptionValueSetter.new(optref => $optset.get($_), :value))
-                        for @options;
-                    next;
-                }
-            }
-            if not $bsd-style {
+            my @ret = $bsd-style ?? &process-bsd-style($optset, $args) !! [];
+            if +@ret > 0 {
+                @oav.append(@ret);
+            } else {
                 @noa.push(Argument.new(index => $noa-index++, value => $args));
             }
         }
     }
 
-    # non-option
+    # call callback of non-option
+    &process-pos($optset, @noa);
+    # set value before main
+    .set-value for @oav;
+    # call main
+    &process-main($optset, @noa);
+    # check option group and value optional
+    $optset.check();
+
+    return @noa;
+}
+
+
+sub process-bsd-style($optset, $arg) {
+    my $check = True;
+    my @options = $arg.comb();
+
+    $check &&= $optset.has($_) && ( not $optset.get($_).need-argument)
+        for @options;
+
+    return $check ?? [
+        OptionValueSetter.new(
+            optref => $optset.get($_),
+            :value
+        ) for @options
+    ] !! ();
+}
+
+sub process-main($optset, @noa) {
+    my %all = $optset.get-main();
+
+    for %all.values() -> $all {
+        $all.($optset, @noa);
+    }
+}
+
+sub process-pos($optset, @noa) {
     my %cmd = $optset.get-cmd();
     my %pos = $optset.get-pos();
 
@@ -257,14 +376,15 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style, :$bsd-style!) is export
             ga-try-next("Need command: < {%cmd.values>>.usage.join("|")} >.");
         } else {
             my $matched = False;
-
             for %cmd.values() -> $cmd {
-               if $cmd.match-name(@noa[0].value) {
-                   $matched ||= $cmd.($optset, @noa);
-               }
+                # check command
+                if $cmd.match-name(@noa[0].value) {
+                    $matched ||= $cmd.($optset, @noa);
+                }
             }
-
             unless $matched {
+                # when no command matched, check if there
+                # any pos[Int] can match
                 for %pos.values() -> $pos {
                     if $pos.index ~~ Int {
                         for @noa -> $noa {
@@ -275,32 +395,19 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style, :$bsd-style!) is export
                     }
                 }
             }
-
             unless $matched {
-               ga-try-next("Not recongnize command: {@noa[0].value}.");
+                # no cmd or pos matched
+                ga-try-next("Not recongnize command: {@noa[0].value}.");
             }
         }
     }
-
-    for %pos.values() -> $pos {
-        for @noa -> $noa {
-            if $pos.match-index(+@noa, $noa.index) {
-                $pos.($optset, $noa);
+    if +@noa > 0 {
+        for %pos.values() -> $pos {
+            for @noa -> $noa {
+                if $pos.match-index(+@noa, $noa.index) {
+                    $pos.($optset, $noa);
+                }
             }
         }
     }
-
-    #option
-    .set-value for @oav;
-
-    # non-option
-    my %all = $optset.get-main();
-
-    for %all.values() -> $all {
-        $all.($optset, @noa);
-    }
-
-    $optset.check();
-
-    return @noa;
 }
