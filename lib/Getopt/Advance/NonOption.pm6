@@ -64,7 +64,7 @@ class NonOption::All does NonOption {
     }
 
     method usage() {
-        "Main";
+        "main";
     }
 }
 
