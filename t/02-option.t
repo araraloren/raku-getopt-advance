@@ -46,9 +46,10 @@ ok $optset{"O2"}:exists, "has O2 option";
 ok $optset{"Ow"}:exists, "has O2 option";
 ok $optset.remove("Ow"), "remove Ow option";
 nok $optset{"Ow"}:exists, "removed O2 option";
+ok $optset{<help v>}:exists, "has help and v";
 ok $optset{'help'}, "set help option ok";
 ok $optset.get('h').value, "set help option ok";
-ok $optset{<help v>}, "help and version all set";
+ok [&&] $optset{<help v>}, "help and version all set";
 is $optset.get("h").annotation, "print this help message";
 ok "Wall" (elem) $optset<f>, "set value ok";
 
