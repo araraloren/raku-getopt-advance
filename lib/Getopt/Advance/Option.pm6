@@ -63,7 +63,7 @@ role Option::Base does Option {
     has $.short = "";
     has &.callback;
     has $.optional = True;
-    has $.annotation;
+    has $.annotation = "";
     has $.value;
     has $.default-value;
 
@@ -304,7 +304,7 @@ class Option::String does Option::Base {
         }
     }
 
-    method set-value(Str:D $value, Bool :$callback) {
+    method set-value(Mu:D $value, Bool :$callback) {
         if $value ~~ Str {
             self.Option::Base::set-value($value, :$callback);
         } elsif so ~$value {
