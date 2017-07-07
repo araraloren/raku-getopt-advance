@@ -141,7 +141,7 @@ class OptionSet {
         @!main;
     }
 
-    method get(::?CLASS::D: Str:D $name --> Option) {
+    method get(::?CLASS::D: Str:D $name) of Option {
         if %!cache{$name}:exists {
             return %!cache{$name};
         } else {
@@ -156,7 +156,11 @@ class OptionSet {
         return Option;
     }
 
-    multi method has(::?CLASS::D: Str:D $name --> Bool) {
+    multi method has(::?CLASS::D: Str:D @names ) of Bool {
+        [&&] [self.has($_) for @names];
+    }
+
+    multi method has(::?CLASS::D: Str:D $name) of Bool {
         if %!cache{$name}:exists {
             return True;
         } else {
@@ -171,11 +175,11 @@ class OptionSet {
         return False;
     }
 
-    multi method has(::?CLASS::D: Str:D @names --> Bool) {
-        [&&] [self.has($_) for @names];
+    multi method remove(::?CLASS::D: Str:D @names) of Bool {
+        [&&] [self.remove($_) for @names];
     }
 
-    multi method remove(::?CLASS::D: Str:D $name --> Bool) {
+    multi method remove(::?CLASS::D: Str:D $name) of Bool {
         my $find = -1;
         if %!cache{$name}:exists {
             for ^+@!main -> $index {
@@ -216,11 +220,12 @@ class OptionSet {
         }
     }
 
-    multi method remove(::?CLASS::D: Str:D @names --> Bool) {
-        [&&] [self.remove($_) for @names];
+    multi method reset(::?CLASS::D: Str:D @names) of ::?CLASS {
+        self.reset($_) for @names;
+        self;
     }
 
-    multi method reset(::?CLASS::D: Str:D $name) {
+    multi method reset(::?CLASS::D: Str:D $name) of ::?CLASS {
         if %!cache{$name}:exists {
             %!cache{$name}.reset-value;
         } else {
@@ -234,16 +239,11 @@ class OptionSet {
         self;
     }
 
-    multi method reset(::?CLASS::D: Str:D @names) {
-        self.reset($_) for @names;
-        self;
-    }
-
-    multi method EXISTS-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) {
+    multi method EXISTS-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) of Bool {
         return self.has(key);
     }
 
-    multi method EXISTS-KEY(::?CLASS::D: Str:D @key) {
+    multi method EXISTS-KEY(::?CLASS::D: Str:D @key) of Bool {
         return [&&] [ self.has($_) for @key ];
     }
 
@@ -256,56 +256,56 @@ class OptionSet {
         return [self.get($_).value for @key];
     }
 
-    method set-value(Str:D $name, $value, :$callback = True) {
+    method set-value(::?CLASS::D: Str:D $name, $value, :$callback = True) of ::?CLASS {
         with self.get($name) -> $opt {
             $opt.set-value($value, :$callback);
         }
         self;
     }
 
-    method set-annotation(Str:D $name, Str:D $annotation) {
+    method set-annotation(::?CLASS::D: Str:D $name, Str:D $annotation) of ::?CLASS {
         with self.get($name) -> $opt {
             $opt.set-annotation($annotation);
         }
         self;
     }
 
-    method set-callback(Str:D $name, &callback) {
+    method set-callback(::?CLASS::D: Str:D $name, &callback) of ::?CLASS {
         with self.get($name) -> $opt {
             $opt.set-callback(&callback);
         }
         self;
     }
 
-    multi method push(::?CLASS::D: Str:D $opt, :$value, :&callback) {
+    multi method push(::?CLASS::D: Str:D $opt, :$value, :&callback) of ::?CLASS {
         @!main.push(
             $!types.create( $opt, :$value, :&callback)
         );
         self;
     }
 
-    multi method push(::?CLASS::D: Str:D $opt, Str:D $annotation, :$value, :&callback) {
+    multi method push(::?CLASS::D: Str:D $opt, Str:D $annotation, :$value, :&callback) of ::?CLASS {
         @!main.push(
             $!types.create($opt, $annotation, :$value, :&callback)
         );
         self;
     }
 
-    multi method append(::?CLASS::D: Str:D $opts) {
+    multi method append(::?CLASS::D: Str:D $opts) of ::?CLASS {
         for $opts.split(';', :skip-empty) {
             @!main.push($!types.create($_));
         }
         self;
     }
 
-    multi method append(::?CLASS::D: *@optpairs where all(@optpairs) ~~ Pair) {
+    multi method append(::?CLASS::D: *@optpairs where all(@optpairs) ~~ Pair) of ::?CLASS {
         for @optpairs {
             @!main.push($!types.create(.key, .value));
         }
         self;
     }
 
-    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$radio!) {
+    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$radio!) of ::?CLASS {
         my @opts = [$!types.create($_) for $opts.split(';', :skip-empty)];
         ga-raise-error("Can not create radio group for only one option") if +@opts <= 1;
         @!radio.push(
@@ -315,7 +315,7 @@ class OptionSet {
         self;
     }
 
-    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$multi!) {
+    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$multi!) of ::?CLASS {
         my @opts = [$!types.create($_) for $opts.split(';', :skip-empty)];
         ga-raise-error("Can not create multi group for only one option") if +@opts <= 1;
         @!multi.push(
@@ -325,7 +325,7 @@ class OptionSet {
         self;
     }
 
-    multi method append(::?CLASS::D: :$optional = True, :$radio!, *@optpairs where all(@optpairs) ~~ Pair) {
+    multi method append(::?CLASS::D: :$optional = True, :$radio!, *@optpairs where all(@optpairs) ~~ Pair) of ::?CLASS {
         my @opts = [ $!types.create(.key, .value) for @optpairs];
         ga-raise-error("Can not create radio group for only one option") if +@opts <= 1;
         @!radio.push(
@@ -335,7 +335,7 @@ class OptionSet {
         self;
     }
 
-    multi method append(::?CLASS::D: :$optional = True, :$multi!, *@optpairs where all(@optpairs) ~~ Pair) {
+    multi method append(::?CLASS::D: :$optional = True, :$multi!, *@optpairs where all(@optpairs) ~~ Pair) of ::?CLASS {
         my @opts = [ $!types.create(.key, .value) for @optpairs];
         ga-raise-error("Can not create multi group for only one option") if +@opts <= 1;
         @!multi.push(
@@ -346,8 +346,7 @@ class OptionSet {
     }
 
     # non-option operator
-
-    multi method has(::?CLASS::D: Int:D $id --> Bool) {
+    multi method has(::?CLASS::D: Int:D $id ) of Bool {
         my @r = [];
         @r.push((sub (\noref) {
             for @(noref).keys {
@@ -371,68 +370,64 @@ class OptionSet {
         }($_) for (%!no-all, %!no-pos, %!no-cmd);
     }
 
-    multi method EXISTS-KEY(::?CLASS::D: Int:D $id) {
+    multi method EXISTS-KEY(::?CLASS::D: Int:D $id) of Bool {
         self.has($id);
     }
 
-    method get-main() {
+    method get-main(::?CLASS::D:) {
         return %!no-all;
     }
 
-    multi method get-cmd() {
+    multi method get-cmd(::?CLASS::D:) {
         %!no-cmd;
     }
 
-    multi method get-pos() {
-        %!no-pos;
-    }
-
-    multi method get-cmd(Str $name) {
-        for %!no-cmd.values {
-            if .name eq $name {
-                return $_;
-            }
-        }
-    }
-
-    multi method get-pos(Str $name, $index) {
-        for %!no-pos.values {
-            if .name eq $name && .match-index(4096, $index) {
-                return $_;
-            }
-        }
-    }
-
-    multi method get-cmd(Int $id) {
+    multi method get-cmd(::?CLASS::D: Int $id) {
         %!no-cmd{$id};
     }
 
-    multi method get-pos(Int $id) {
+    multi method get-cmd(::?CLASS::D: Str $name) {
+        for %!no-cmd.values {
+            return $_ if .name eq $name;
+        }
+    }
+
+    multi method get-pos(::?CLASS::D:) {
+        %!no-pos;
+    }
+
+    multi method get-pos(::?CLASS::D: Int $id) {
         %!no-pos{$id};
     }
 
-    multi method reset-cmd(Str $name) {
-        for %!no-cmd.values {
-            if .name eq $name {
-                .reset-success;
+    multi method get-pos(::?CLASS::D: Str $name, $index) {
+        for %!no-pos.values {
+            if .name eq $name && .match-index(4096, $index) {
+                return $_;
             }
         }
     }
 
-    multi method reset-cmd(Int $id) {
+    multi method reset-cmd(::?CLASS::D: Int $id) {
         %!no-cmd{$id}.reset-success;
     }
 
-    multi method reset-pos(Str $name, $index) {
+    multi method reset-cmd(::?CLASS::D: Str $name) {
+        for %!no-cmd.values {
+            .reset-success if .name eq $name;
+        }
+    }
+
+    multi method reset-pos(::?CLASS::D: Int $id) {
+        %!no-pos{$id}.reset-success;
+    }
+
+    multi method reset-pos(::?CLASS::D: Str $name, $index) {
         for %!no-pos.values {
             if .name eq $name && .match-index(4096, $index) {
                 .reset-success;
             }
         }
-    }
-
-    multi method reset-pos(Int $id) {
-        %!no-pos{$id}.reset-success;
     }
 
     multi method insert-main(::?CLASS::D: &callback) of Int {
@@ -475,7 +470,7 @@ class OptionSet {
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, $index where * ~~ Int:D | WhateverCode , &callback) of Int {
+    multi method insert-pos(::?CLASS::D: Str:D $name, $index where Int:D | WhateverCode , &callback) of Int {
         my $id = $!counter++;
         %!no-pos.push(
             $id => NonOption::Pos.new( :$name, :$index, :&callback)
@@ -483,7 +478,7 @@ class OptionSet {
         return $id;
     }
 
-    method check() {
+    method check(::?CLASS::D:) {
         for (@!radio, @!multi) -> @groups {
             for @groups -> $group {
                 $group.check();
@@ -492,7 +487,7 @@ class OptionSet {
         .check unless .optional for @!main;
     }
 
-    method annotation() {
+    method annotation(::?CLASS::D:) {
         return [] if @!main.elems == 0;
         require Terminal::Table <&array-to-table>;
         my @annotation;
@@ -509,7 +504,6 @@ class OptionSet {
                 })
             ]);
         }
-
         &array-to-table(@annotation, style => 'none');
     }
 
