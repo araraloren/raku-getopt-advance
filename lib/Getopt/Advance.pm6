@@ -17,27 +17,32 @@ proto sub getopt(|) { * }
 )
 multi sub getopt (
     *@optset where all(@optset) ~~ OptionSet,
-    :&helper = &ga-helper,
-    :$stdout = $*OUT,
-    :$stderr = $*ERR,
-    :&parser = &ga-parser,
-    :$strict = True,
-    :$autohv = False,
-    :$version,
-    :$bsd-style,
-    :$x-style) is export {
+    *%args) is export {
     samewith(
         @*ARGS ?? @*ARGS.clone !! $[],
         |@optset,
-        :&helper,
-        :$stdout,
-        :$stderr,
-        :&parser,
-        :$strict,
-        :$autohv,
-        :$version,
-        :$bsd-style,
-        :$x-style
+        |%args
+    );
+}
+
+multi sub getopt(
+    Str $optstring,
+    *%args ) is export {
+    samewith(
+        @*ARGS ?? @*ARGS.clone !! $[],
+        OptionSet.new-from-optstring($optstring),
+        |%args
+    );
+}
+
+multi sub getopt(
+    @args,
+    Str $optstring,
+    *%args ) is export {
+    samewith(
+        @args,
+        OptionSet.new-from-optstring($optstring),
+        |%args
     );
 }
 
@@ -118,6 +123,13 @@ class OptionSet {
     has $!types;
     has $!counter;
 
+    method new-from-optstring(Str $optstring is copy) {
+        $optstring ~~ s:g/(\w)<!before \:>/$0=b;/;
+        $optstring ~~ s:g/(\w)\:/$0=s;/;
+
+        OptionSet.new().append($optstring);
+    }
+
     submethod TWEAK() {
         $!types = Types::Manager.new;
         $!types.register('b', Option::Boolean)
@@ -128,7 +140,7 @@ class OptionSet {
               .register('f', Option::Float);
     }
 
-    method keys() {
+    method keys(::?CLASS::D:) {
         my @keys = [];
         for @!main {
             @keys.push(.long) if .has-long;
@@ -137,7 +149,7 @@ class OptionSet {
         @keys;
     }
 
-    method values() {
+    method values(::?CLASS::D:) {
         @!main;
     }
 
@@ -249,11 +261,11 @@ class OptionSet {
 
     # NOTICE: this return the value of option
     multi method AT-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) {
-        return self.get(key).value;
+        self.get(key) andthen return .value;
     }
 
     multi method AT-KEY(::?CLASS::D: Str:D @key) {
-        return [self.get($_).value for @key];
+        return [for @key { self.has($_) ?? self.get($_).value !! Option }];
     }
 
     method set-value(::?CLASS::D: Str:D $name, $value, :$callback = True) of ::?CLASS {
