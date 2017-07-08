@@ -36,6 +36,12 @@ sub ga-want-helper() is export {
     X::GA::WantPrintHelper.new().throw;
 }
 
+class X::GA::WantPrintAllHelper is X::GA::Exception { }
+
+sub ga-want-all-helper() is export {
+    X::GA::WantPrintAllHelper.new().throw;
+}
+
 class X::GA::GroupValueInvalid is X::GA::Exception { }
 
 sub ga-group-error(Str $msg) is export {

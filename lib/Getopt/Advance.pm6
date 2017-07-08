@@ -16,11 +16,11 @@ proto sub getopt(|) { * }
     :$gnu-style, :$unix-style, :$x-style, :$bsd-style,
 )
 multi sub getopt (
-    *@optset where all(@optset) ~~ OptionSet,
+    *@optsets where all(@optsets) ~~ OptionSet,
     *%args) is export {
     samewith(
         @*ARGS ?? @*ARGS.clone !! $[],
-        |@optset,
+        |@optsets,
         |%args
     );
 }
@@ -48,7 +48,7 @@ multi sub getopt(
 
 multi sub getopt (
     @args,
-    *@optset where all(@optset) ~~ OptionSet,
+    *@optsets where all(@optsets) ~~ OptionSet,
     :&helper = &ga-helper,
     :$stdout = $*OUT,
     :$stderr = $*ERR,
@@ -59,7 +59,7 @@ multi sub getopt (
     :$bsd-style,
     :$x-style, #`(giving priority to x-style) ) is export {
     our $*ga-bsd-style = $bsd-style;
-    my ($index, $count, @noa, $optset) = (0, +@optset, []);
+    my ($index, $count, @noa, $optset) = (0, +@optsets, []);
     my &auto-helper = -> $optset {
         with &helper {
             &helper($optset, $stdout);
@@ -67,7 +67,7 @@ multi sub getopt (
     };
 
     while $index < $count {
-        $optset := @optset[$index++];
+        $optset := @optsets[$index];
         try {
             @noa = &parser(
                 @args,
@@ -79,8 +79,9 @@ multi sub getopt (
             last;
             CATCH {
                 when X::GA::ParseFailed {
+                    $index++;
                     if $index == $count {
-                        &auto-helper($optset);
+                        &auto-helper(@optsets);
                         $stderr.say(.message);
                         .throw;
                     }
@@ -88,6 +89,11 @@ multi sub getopt (
 
                 when X::GA::WantPrintHelper {
                     &auto-helper($optset);
+                    exit (0);
+                }
+
+				when X::GA::WantPrintAllHelper {
+                    &auto-helper(@optsets);
                     exit (0);
                 }
 
@@ -99,6 +105,11 @@ multi sub getopt (
             }
         }
     }
+
+	if $index == $count {
+		&auto-helper(@optsets);
+        exit (0);
+	}
 
     if $autohv {
         if $optset.has('version') && $optset<version> {
