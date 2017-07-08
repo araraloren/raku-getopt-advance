@@ -1,10 +1,10 @@
 
 multi sub ga-helper($optset, $outfh) is export {
-	my ($usage, @annotations) = &ga-helper-impl($optset, $outfh);
+	my ($usage, @annotations) := &ga-helper-impl($optset, $outfh);
 
 	$outfh.say("Usage:");
 	$outfh.say($usage ~ "\n");
-	$outfh.say("{$_}\n\n") for @annotations;
+	$outfh.say($_) for @annotations;
 }
 
 multi sub ga-helper(@optsets, $outfh) is export {
@@ -12,22 +12,21 @@ multi sub ga-helper(@optsets, $outfh) is export {
 
 	$outfh.say("Usage:");
 	for @optsets -> $optset {
-		my ($usage, @annotations) = &ga-helper-impl($optset, $outfh);
-
+		my ($usage, @annotations) := &ga-helper-impl($optset, $outfh);
 		$outfh.say($usage);
 		@annotationss.push(@annotations);
 	}
 	for @annotationss -> $annotations {
-		$outfh.say("{$_}\n\n") for @$annotations;
+		$outfh.say($_) for @$annotations;
 	}
 }
 
 multi sub ga-helper2($optset, $outfh, :$table-format) is export {
-	my ($usage, @annotations) = &ga-helper-impl2($optset, $outfh, :$table-format);
+	my ($usage, @annotations) := &ga-helper-impl2($optset, $outfh, :$table-format);
 
 	$outfh.say("Usage:");
 	$outfh.say($usage ~ "\n");
-	$outfh.say("{$_}\n\n") for @annotations;
+	$outfh.say($_) for @annotations;
 }
 
 multi sub ga-helper2(@optsets, $outfh, :$table-format) is export {
@@ -35,13 +34,13 @@ multi sub ga-helper2(@optsets, $outfh, :$table-format) is export {
 
 	$outfh.say("Usage:");
 	for @optsets -> $optset {
-		my ($usage, @annotations) = &ga-helper-impl2($optset, $outfh, :$table-format);
+		my ($usage, @annotations) := &ga-helper-impl2($optset, $outfh, :$table-format);
 
 		$outfh.say($usage);
 		@annotationss.push(@annotations);
 	}
 	for @annotationss -> $annotations {
-		$outfh.say("{$_}\n\n") for @$annotations;
+		$outfh.say($_) for @$annotations;
 	}
 }
 
@@ -96,8 +95,11 @@ sub ga-helper-impl($optset, $outfh) is export {
     $usage ~= "{join(" ", @opts)} {join(" ", @wepos)} ";
     $usage ~= $optset.get-main().elems > 0 ?? "*\@args\n" !! "\n";
 
+	my @annotations = [];
 
-	($usage, [ .join("  ") for @($optset.annotation()) ]);
+ 	@annotations.push("{.join(" ")}\n") for @($optset.annotation());
+
+	($usage, @annotations);
 }
 
 sub ga-helper-impl2($optset, $outfh, :$table-format) is export {
@@ -140,16 +142,14 @@ sub ga-helper-impl2($optset, $outfh, :$table-format) is export {
         @opts.push($opt.optional ?? "[{$opt.usage}]" !! "<{$opt.usage}>");
     }
 
-    if not $table-format {
-        my $usage = "";
+	my $usage = "";
 
+    if not $table-format {
         for @command -> $cmd {
             $usage ~= "{$*PROGRAM-NAME} {$cmd} {join(" ", @pos)} ";
             $usage ~= "{join(" ", @opts)} {join(" ", @wepos)} ";
             $usage ~= $optset.get-main().elems > 0 ?? "*\@args\n" !! "\n";
         }
-
-		($usage, [ .join("  ") for @($optset.annotation()) ]);
     } else {
         my @usage = [];
 
@@ -167,11 +167,12 @@ sub ga-helper-impl2($optset, $outfh, :$table-format) is export {
 
         require Terminal::Table <&array-to-table>;
 
-		my $usage = "";
-
         $usage ~= .join(" ") ~ "\n" for &array-to-table(@usage, style => 'none');
-		($usage, [ .join(" ") for @($optset.annotation()) ] );
     }
+	my @annotations = [];
+
+	@annotations.push("{.join(" ")}\n") for @($optset.annotation());
+	($usage, @annotations);
 }
 
 sub ga-versioner(Str $version, $outfh) is export {

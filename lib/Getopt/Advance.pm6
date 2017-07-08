@@ -60,9 +60,9 @@ multi sub getopt (
     :$x-style, #`(giving priority to x-style) ) is export {
     our $*ga-bsd-style = $bsd-style;
     my ($index, $count, @noa, $optset) = (0, +@optsets, []);
-    my &auto-helper = -> $optset {
+    my &auto-helper = -> |c {
         with &helper {
-            &helper($optset, $stdout);
+            &helper(|c, $stdout);
         }
     };
 
