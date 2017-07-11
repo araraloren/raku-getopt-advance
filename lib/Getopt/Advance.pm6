@@ -511,23 +511,24 @@ class OptionSet {
     }
 
     method annotation(::?CLASS::D:) {
-        return [] if @!main.elems == 0;
-        require Terminal::Table <&array-to-table>;
-        my @annotation;
+		return [] if @!main.elems == 0;
+		if (require Terminal::Table <&array-to-table>) || 1 {
+			my @annotation;
 
-        for @!main -> $opt {
-            @annotation.push([
-                $opt.usage,
-                $opt.annotation ~ (do {
-                    if $opt.default-value.defined {
-                        "[{$opt.default-value}]";
-                    } else {
-                        "";
-                    }
-                })
-            ]);
-        }
-        &array-to-table(@annotation, style => 'none');
+			for @!main -> $opt {
+				@annotation.push([
+					$opt.usage,
+					$opt.annotation ~ (do {
+						if $opt.default-value.defined {
+							"[{$opt.default-value}]";
+						} else {
+							"";
+						}
+					})
+				]);
+			}
+			&array-to-table(@annotation, style => 'none');
+		}
     }
 
     method clone(*%_) {
