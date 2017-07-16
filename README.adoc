@@ -14,6 +14,90 @@ non-option argument, it provide `main`、`pos` and `cmd` feature.
 
 link:README.zh.adoc[中文帮助]
 
+== getopt
+
+Sub `getopt` has 4 overload, please refer link:doc/Getopt/Advance.pod[pod document].
+
+== OptionSet
+
+`OptionSet` is a set of `Option` as the literal mean. Provide interface manage your
+`Option`.
+
+== Option
+
+`Option` can be create by a string. For example, `"a|action=b"` represent an option
+with two kind name, long name is `action`, and short name is `a`, and the option
+type is `boolean`. So you can set **action** argument to true by append `-a` or `--action`
+after your program.
+
+The list of Option type:
+
+.OptionType
+[cols="h,^.^,^.^,^.^m,^.^2m,^.^3m",options="header",width="100%"]
+|==================================
+| type | has argument | represent | create example | set example | support style
+| boolean | no  | b | a\|action=b | -a   | unix gnu x bsd deactivate
+| integer | yes | i | a\|action=i | -a=1 | unix gnu x
+| float   | yes | f | a\|action=f | -a 0.1| unix gnu x
+| string  | yes | s | a\|action=s | --action "u" | unix gnu x
+| array   | yes | a | a\|action=a | --action "item" | unix gnu x
+| hash    | yes | h | a\|action=h | -a ":answer(42)" | unix gnu x
+|==================================
+
+== NonOption
+
+`NonOption` can be use to handle `NOA`(short for non-option argument). You can get
+specific `NOA`, match them or call `callback` when matched. The `NOA` index begin from
+**0**.
+
+NOTE: The parser will check `NonOption` after all option argument matched.
+
+=== pos
+
+`NonOption` `pos` capture `NOA` of specific postion, but it's not force user supply an
+`NOA`. The parser will call it's callback when the `NOA` index matched.
+
+NOTE: The parser will check `pos` after `cmd`, and before `main`.
+
+=== cmd
+
+`NonOption` `cmd` always capture the first NOA, and it's force user supply one of
+available cmd. The parser will call it's callback when the `NOA` name matched.
+
+NOTE: The parser will check `cmd` first. If a front `pos` (with index 0) provide,
+parser will not throw exception when `pos` matched.
+
+=== main
+
+`NonOption` `main` capture all NOA, and it's callback will be called when `main`
+exists.
+
+NOTE: The parser will check `main` last.
+
+== Group
+
+
+
+=== multi
+
+=== radio
+
+== getopt
+
+=== unix-style
+
+=== gnu-style
+
+=== x-style
+
+=== other
+
+=== type
+
+== Pod Document
+
+link:doc/Getopt/Advance.pod[Getopt-Advance]
+
 == Example
 
 === find-file
