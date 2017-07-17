@@ -76,11 +76,18 @@ NOTE: The parser will check `main` last.
 
 == Group
 
+`Group` provide a way set up association between multi `Option`, and it has a check method.
+The parser will call it's check method before return to `&getopt`.
 
+=== radio
+
+In `radio` `Group`, `Option` can be set only one at the same time. And it force user
+supply an option when `Option` is not optional.
 
 === multi
 
-=== radio
+`multi` `Group` is just provide a possibility in having better style of source code.
+Also it force user supply an option when `Option` is not optional.
 
 == getopt
 
