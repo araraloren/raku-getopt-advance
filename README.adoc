@@ -14,10 +14,6 @@ non-option argument, it provide `main`、`pos` and `cmd` feature.
 
 link:README.zh.adoc[中文帮助]
 
-== getopt
-
-Sub `getopt` has 4 overload, please refer link:doc/Getopt/Advance.pod[pod document].
-
 == OptionSet
 
 `OptionSet` is a set of `Option` as the literal mean. Provide interface manage your
