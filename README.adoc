@@ -126,35 +126,35 @@ and rethrow the exception.
 === named argument
 
 * :&helper = &ga-helper
-
++
 `&helper` will generate and display help message of `OptionSet`, default is `&ga-helper`.
 
 * :$stdout = $*OUT
-
++
 Help message will print to `$stdout`, default is `$*OUT`.
 
 * :$stderr = $*ERR
-
++
 Error message will print to `$stderr`, default is `$*ERR`.
 
 * :$strict = True
-
++
 When `$strict` is True, argument of option should not be begin with `-` or `--`.
 
 * :$autohv = False
-
++
 When `$autohv` is True, `&getopt` will automate print `$version` information and help message.
 
 * :$version
-
++
 Program version information.
 
 * :$bsd-style
-
++
 When `$bsd-style` is True, `&parser` will accept bsd style option.
 
 * :$x-style
-
++
 When `$x-style` is True, x-style have priority over unix-style.
 
 == Pod Document
