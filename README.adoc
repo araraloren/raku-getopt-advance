@@ -65,7 +65,8 @@ NOTE: The parser will check `pos` after `cmd`, and before `main`.
 available cmd. The parser will call it's callback when the `NOA` name matched.
 
 NOTE: The parser will check `cmd` first. If a front `pos` (with index 0) provide,
-parser will not throw exception when `pos` matched.
+parser will not throw exception when `pos` matched, otherwise it will raise an exception
+when all `cmd` not matched.
 
 === main
 
@@ -91,15 +92,70 @@ Also it force user supply an option when `Option` is not optional.
 
 == getopt
 
-=== unix-style
+* `multi sub getopt(       Str $optstring, *%args)`
+* `multi sub getopt(@args, Str $optstring, *%args)`
+* `multi sub getopt(       *@optsets,      *%args)`
+* `multi sub getopt(@args, *@optsets,      *%args)`
 
-=== gnu-style
+Sub `&getopt` accept one or multi `OptionSet`, pass it and command line argument to the `&parser`.
+`&getopt` can accept traditional getopt(in C) string, and convert it to `OptionSet`. 
+Once an `OptionSet` matching success, it will return matched `OptionSet` and 
+all `NOA(Non-Option Argument)`.
+When match failed, consider follow serveral situation:
 
-=== x-style
+* default
++
+`&getopt` will print helper(when `&helper` defined) of current `OptionSet`, 
+print error message, and rethrow the exception.
 
-=== other
+* X::GA::ParseFailed
++
+The `&parser` will call `&ga-try-next` throw an X::GA::ParseFailed exception when `OptionSet` match
+failed. When `&getopt` caught this exception, it will try next `OptionSet` supplied. If no more `OptionSet`, 
+it will print helper(when `&helper` defined) of all `OptionSet`,  print error message, 
+and rethrow the exception.
 
-=== type
+* X::GA::WantPrintHelper
++
+`&getopt` will print helper(when `&helper` defined) of current `OptionSet` and exit with 0.
+
+* X::GA::WantPrintAllHelper
++
+`&getopt` will print helper(when `&helper` defined) of all `OptionSet` and exit with 0.
+
+=== named argument
+
+* :&helper = &ga-helper
+
+`&helper` will generate and display help message of `OptionSet`, default is `&ga-helper`.
+
+* :$stdout = $*OUT
+
+Help message will print to `$stdout`, default is `$*OUT`.
+
+* :$stderr = $*ERR
+
+Error message will print to `$stderr`, default is `$*ERR`.
+
+* :$strict = True
+
+When `$strict` is True, argument of option should not be begin with `-` or `--`.
+
+* :$autohv = False
+
+When `$autohv` is True, `&getopt` will automate print `$version` information and help message.
+
+* :$version
+
+Program version information.
+
+* :$bsd-style
+
+When `$bsd-style` is True, `&parser` will accept bsd style option.
+
+* :$x-style
+
+When `$x-style` is True, x-style have priority over unix-style.
 
 == Pod Document
 
