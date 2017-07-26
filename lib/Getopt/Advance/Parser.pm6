@@ -264,7 +264,7 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style where :!so, :$bsd-style,
     # set value before main
     .set-value for @oav;
     # call main
-    &process-main($optset, @noa) if !$autohv || &will-not-process-main($optset);
+    &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
     # check option group and value optional
     $optset.check();
 
@@ -336,7 +336,7 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style where :so, :$bsd-style, 
     # set value before main
     .set-value for @oav;
     # call main
-    &process-main($optset, @noa) if !$autohv || &will-not-process-main($optset);
+    &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
     # check option group and value optional
     $optset.check();
 
