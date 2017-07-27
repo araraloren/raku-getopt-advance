@@ -1,5 +1,15 @@
 = perl6-getopt-advance
 :toc-title: contents
+:description: An advance command line parse tool replace Getopt::Kinoko
+:keywords: getopt command line option
+:Email: blackcatoverwall@gmail.com
+:Revision: 1.0
+:icons: font
+:source-highlighter: pygments
+:source-language: perl6
+:pygments-linenums-mode: table
+:toc: left
+:lang: en
 
 image:https://travis-ci.org/araraloren/perl6-getopt-advance.svg?branch=master["Build Status", link="https://travis-ci.org/araraloren/perl6-getopt-advance"]
 
