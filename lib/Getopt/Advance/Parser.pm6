@@ -264,11 +264,12 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style where :!so, :$bsd-style,
     # set value before main
     .set-value for @oav;
     # call main
-    &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
+    my %ret;
+    %ret = &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
     # check option group and value optional
     $optset.check();
 
-    return @noa;
+    return %ret, @noa;
 }
 
 # check name
@@ -336,11 +337,12 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style where :so, :$bsd-style, 
     # set value before main
     .set-value for @oav;
     # call main
-    &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
+    my %ret;
+    %ret = &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
     # check option group and value optional
     $optset.check();
 
-    return @noa;
+    return %ret, @noa;
 }
 
 
@@ -367,10 +369,12 @@ sub will-not-process-main($optset) {
 
 sub process-main($optset, @noa) {
     my %all = $optset.get-main();
+    my %ret;
 
-    for %all.values() -> $all {
-        $all.($optset, @noa);
+    for %all -> $all {
+        %ret{$all.key} = $all.value.($optset, @noa);
     }
+    return %ret;
 }
 
 sub process-pos($optset, @noa) {
