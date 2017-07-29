@@ -13,6 +13,12 @@ my class OptionValueSetter {
     }
 }
 
+class Getopt::Advance::ReturnValue {
+    has $.optionset;
+    has @.noa;
+    has %.return-value;
+}
+
 grammar Option::Grammar {
 	token TOP { ^ <option> $ }
 
@@ -198,7 +204,14 @@ class Option::Actions {
 # check name
 # check value
 # then parse over
-multi sub ga-parser(@args, $optset, :$strict, :$x-style where :!so, :$bsd-style, :$autohv) of Array is export {
+multi sub ga-parser(
+    @args,
+    $optset,
+    :$strict,
+    :$x-style where :!so,
+    :$bsd-style,
+    :$autohv
+) of Getopt::Advance::ReturnValue is export {
     my $count = +@args;
     my $noa-index = 0;
     my @oav = [];
@@ -269,13 +282,24 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style where :!so, :$bsd-style,
     # check option group and value optional
     $optset.check();
 
-    return %ret, @noa;
+    return Getopt::Advance::ReturnValue.new(
+        optionset => $optset,
+        noa => @noa,
+        return-value => %ret,
+    );
 }
 
 # check name
 # check value
 # then parse over
-multi sub ga-parser(@args, $optset, :$strict, :$x-style where :so, :$bsd-style, :$autohv) of Array is export {
+multi sub ga-parser(
+    @args,
+    $optset,
+    :$strict,
+    :$x-style where :so,
+    :$bsd-style,
+    :$autohv
+) of Getopt::Advance::ReturnValue is export {
     my $count = +@args;
     my $noa-index = 0;
     my @oav = [];
@@ -342,7 +366,11 @@ multi sub ga-parser(@args, $optset, :$strict, :$x-style where :so, :$bsd-style, 
     # check option group and value optional
     $optset.check();
 
-    return %ret, @noa;
+    return Getopt::Advance::ReturnValue.new(
+        optionset => $optset,
+        noa => @noa,
+        return-value => %ret,
+    );
 }
 
 
