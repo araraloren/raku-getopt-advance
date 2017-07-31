@@ -338,7 +338,7 @@ class Option::Hash does Option::Base {
     }
 
     method value {
-        %$!value;
+        $!value ?? %$!value !! Hash;
     }
 
     # This actually is a push-value
@@ -434,7 +434,7 @@ class Option::Array does Option::Base {
     }
 
     method value {
-        @$!value;
+        $!value ?? @$!value !! Array;
     }
 
     # This actually is a push-value
