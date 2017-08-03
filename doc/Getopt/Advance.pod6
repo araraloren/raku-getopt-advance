@@ -76,6 +76,9 @@ sub find($dir) {
     }
 }
 
+=end code
+
+=begin code
 The help of script:
 Usage:
 ./find-file.p6 <directory>  [-h|--help] [-v|--version] [-?] [--size=<integer>] [-d] [-l] [-f]  *@args
@@ -93,8 +96,8 @@ Usage:
 -l                specify file type to symlink
 
 -f                specify file type to normal file
-
 =end code
+
 
 =head1 DESCRIPTION
 
@@ -106,9 +109,34 @@ non-option argument, it provide `main`、`pos` and `cmd` feature.
 
 =head1 getopt
 
+=item getopt(       Str $optstring, *%args) of Getopt::Advance::ReturnValue
+=item getopt(@args, Str $optstring, *%args) of Getopt::Advance::ReturnValue
+=item getopt(       *@optsets,      *%args) of Getopt::Advance::ReturnValue
+=item getopt(@args, *@optsets,      *%args) of Getopt::Advance::ReturnValue
+
 Sub `&getopt` accept one or multi `OptionSet`, pass it and command line argument
-to the `&parser`. Once an `OptionSet` matching success, it will return matched
-`OptionSet` and all `NOA(Non-Option Argument)`.
+to the `&parser`. Once an `OptionSet` matching success, it will return an instance of 
+`Getopt::Advance::ReturnValue`.
+
+=head2 argument of getopt
+
+=item $optstring
+
+    `&getopt` support string format which GNU getopt(3) use. It will call method
+    `OptionSet.new-from-string` create a instance of `OptionSet`.
+
+=item @args
+
+    Let `&getopt` parse command line from @args. In default, `&getopt` parse command
+    line argument from @*ARGS.
+
+=item *@optsets
+
+    You can pass multi `OptionSet` to `&getopt`.
+
+=item *%args
+
+    Named argument of `&getopt`. There will be an introduction below.
 
 If an `OptionSet` match failed, consider follow serveral situation:
 
@@ -138,15 +166,59 @@ If an `OptionSet` match failed, consider follow serveral situation:
     and print help message of all `OptionSet`. `&getopt` will print helper(when
     help generator `&helper` defined) of all `OptionSet` and exit with 0.
 
-=head2 getopt(       Str $optstring, *%args)
-
-=head2 getopt(@args, Str $optstring, *%args)
-
-=head2 getopt(       *@optsets,      *%args)
-
-=head2 getopt(@args, *@optsets,      *%args)
-
 =head2 named argument of getopt
+
+=item :&helper = &ga-helper
+
+    `&helper` will generate and display help message of `OptionSet`, default is `&ga-helper`.
+
+=item :$stdout = $*OUT
+
+    Help and Version message will print to `$stdout`, default is `$*OUT`.
+
+=item :$stderr = $*ERR
+
+    Error message will print to `$stderr`, default is `$*ERR`.
+
+=item :$parser = &ga-parser
+
+    Command line argument parser, default is `&ga-parser`.
+
+=item :$strict = True
+
+    When `$strict` is True, argument of option should not be begin with `-` or `--`.
+
+=item :$autohv = False
+
+    When `$autohv` is True, `&getopt` will automate print `$version` information 
+    and help message.
+
+=item :$version
+
+    Program version information.
+
+=item :$bsd-style
+
+    When `$bsd-style` is True, `&parser` will accept bsd style option.
+
+=item :$x-style
+
+    When `$x-style` is True, x-style have priority over unix-style.
+
+=head2 return value
+
+=begin code
+class Getopt::Advance::ReturnValue {
+    has $.optionset;
+    has @.noa;
+    has %.return-value;
+}
+=end code
+
+    When one of given `OptionSet`s matched, it return an instance of `Getopt::Advance::ReturnValue`.
+    or it throw an exception.
+    When user call `&ga-want-helper` or `&ga-want-all-helper` ask help message, `&getopt` will 
+    call exit with 0.
 
 =head1 OptionSet
 
