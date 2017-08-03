@@ -163,7 +163,7 @@ Also it force user supply an option when `Option` is not optional.
 
 Sub `&getopt` accept one or multi `OptionSet`, pass it and command line argument to the `&parser`.
 `&getopt` can accept traditional getopt(in C) string, and convert it to `OptionSet`.
-Once an `OptionSet` matching success, it will return `Getopt::Advance::ReturnValue`.
+Once an `OptionSet` matching success, it will return an instance of `Getopt::Advance::ReturnValue`.
 This class contain matched `OptionSet`、all `NOA(Non-Option Argument)`, and `main`'s id and
 return value.
 
