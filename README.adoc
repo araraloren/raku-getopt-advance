@@ -243,6 +243,10 @@ link:doc/Getopt/Advance.pod[Getopt-Advance]
 
 == Example
 
+=== App::snippet
+
+link:https://github.com/araraloren/perl6-app-snippet[an app used Getopt::Advance]
+
 === find-file
 
 ==== usage
