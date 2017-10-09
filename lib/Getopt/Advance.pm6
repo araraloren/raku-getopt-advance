@@ -122,8 +122,12 @@ multi sub getopt (
 	}
 
     if $autohv {
-        &ga-versioner($version, $stdout);
-        &auto-helper($optset);
+        if $optset.has('version') && $optset<version> {
+            &ga-versioner($version, $stdout);
+        }
+        if $optset.has('help') && $optset<help> {
+            &auto-helper($optset);
+        }
     }
 
     return $ret;
