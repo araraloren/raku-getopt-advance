@@ -86,7 +86,7 @@ This is insert a main to `$optset`, it print all non-option argument.
 `my @x := $optset<x>;`
 
 NOTE: Use bind operator when you want bind `Option::Array`'s value to
-an Positional/Association variable. 
+an Positional/Association variable.
 
 == Option
 
@@ -225,6 +225,8 @@ When `$strict` is True, argument of option should not be begin with `-` or `--`.
 * :$autohv = False
 +
 When `$autohv` is True, `&getopt` will automate print `$version` information and help message.
+The `:autohv` will not work if you don't have a option named `help` and `version`.
+Without `:autohv`, you need deal the `help` or `version` manually.
 
 * :$version
 +
@@ -240,7 +242,7 @@ When `$x-style` is True, x-style have priority over unix-style.
 
 == Pod Document
 
-link:doc/Getopt/Advance.pod[Getopt-Advance]
+link:doc/Getopt/Advance.pod6[Getopt-Advance]
 
 == Example
 
@@ -331,6 +333,7 @@ $optset.push(
 );
 $optset.insert-main(
     sub main($optset, @args) {
+        return 0 if $optset<help> || $optset<version>;
         if $optset.get-pos('directory', 0).?success {
             @args.shift;
         } else {
@@ -345,7 +348,7 @@ $optset.insert-main(
         }
     }
 );
-&getopt($optset, :autohv, helper => &ga-helper2);
+&getopt($optset, :autohv, helper => &ga-helper2, version => "Version 0.1.0.");
 
 sub find($dir) {
     for $dir.dir() -> $f {
