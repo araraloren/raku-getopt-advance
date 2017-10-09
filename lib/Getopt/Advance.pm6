@@ -122,6 +122,7 @@ multi sub getopt (
 	}
 
     if $autohv {
+        # autohv automate deal the help and version option.
         if $optset.has('version') && $optset<version> {
             &ga-versioner($version, $stdout);
         }
