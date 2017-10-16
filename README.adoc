@@ -303,3 +303,4 @@ The MIT License (MIT).
 
 * add option can reference variable.
 * add callback only mode
+* let user set option name autohv
