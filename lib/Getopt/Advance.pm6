@@ -145,6 +145,10 @@ class OptionSet {
     has $!types;
     has $!counter;
 
+    method new-from-sub(&sub) {
+        # create OptionSet from sub
+    }
+
     method new-from-optstring(Str $optstring is copy) {
         $optstring ~~ s:g/(\w)<!before \:>/$0=b;/;
         $optstring ~~ s:g/(\w)\:/$0=s;/;
