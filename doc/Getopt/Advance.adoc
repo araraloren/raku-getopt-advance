@@ -107,6 +107,145 @@ option compared to traditional command line tools. In addition, it also support
 `radio`、`multi` group mechanism which can manage option realtionship. And to handle
 non-option argument, it provide `main`、`pos` and `cmd` feature.
 
+= USAGE
+
+== OptionSet
+
+`OptionSet` is a set of `Option` as the literal mean. Provide interface manage your
+`Option`.
+
+=== new
+
+There are no argument of new:
+
+`my OptionSet $optset .= new();`
+
+=== Add Option
+
+* `push(::OptionSet::D: Str:D $opt, :$value, :&callback) of ::OptionSet`
+* `push(::OptionSet::D: Str:D $opt, Str:D $annotation, :$value, :&callback) of ::OptionSet`
+* `append(::OptionSet::D: Str:D $opts) of ::OptionSet`
+* `append(::OptionSet::D: *@optpairs where all(@optpairs) ~~ Pair) of ::OptionSet`
+
+`$optset.push("c|count=i", "set something int", value \=> 3);`
+
+This is add an option with short name **c** and long name **count**. And the second
+parameter set annotation of option is `"set something int"`, it will be display with
+usage generate by `&helper` (helper generator pass to `&getopt`). The third parameter is
+an named argument, it set the default value of option is **3**.And if you provide
+`&callback`, it will be called when option value are set.
+
+`$optset.append("c|count=i" \=> "set something int", "s|string=s" \=> "set something string")`
+
+This is append two option with their name and annotation.
+
+=== Add Group
+
+* `append(::OptionSet::D: Str:D $opts, :$optional = True, :$radio, :$multi) of ::OptionSet`
+* `append(::OptionSet::D: :$optional = True, :$radio, :$multi, *@optpairs where all(@optpairs) ~~ Pair) of ::OptionSet`
+
+`$optset.append("c|count=c;s|string=s", :radio);`
+
+This is add a radio group, it has two option: `c|count=c`、`s|string=s`.
+
+=== Add NonOption
+
+* `insert-main(::OptionSet::D: &callback) of Int`
+* `insert-cmd(::OptionSet::D: Str:D $name) of Int`
+* `insert-cmd(::OptionSet::D: Str:D $name, &callback) of Int`
+* `insert-pos(::OptionSet::D: Str:D $name, &callback, :$front!) of Int`
+* `insert-pos(::OptionSet::D: Str:D $name, &callback, :$last!) of Int`
+* `insert-pos(::OptionSet::D: Str:D $name, $index where Int:D | WhateverCode , &callback) of Int`
+
+`$optset.insert-main(sub main (@args) { .say of @args; });`
+
+This is insert a main to `$optset`, it print all non-option argument.
+
+=== Get Option Value
+
+`my $x = $optset<x>;`
+`my @x := $optset<x>;`
+
+NOTE: Use bind operator when you want bind `Option::Array`'s value to
+an Positional/Association variable.
+
+== Option
+
+`Option` can be create by a string. For example, `"a|action=b"` represent an option
+with two kind name, long name is `action`, and short name is `a`, and the option
+type is `boolean`. So you can set **action** argument to true by append `-a` or `--action`
+after your program.
+
+The list of Option type:
+
+.OptionType
+[cols="h,^.^,^.^,^.^m,^.^2m,^.^3m",options="header",width="100%"]
+|==================================
+| type | has argument | represent | create example | set example | support style
+| boolean | no  | b | a\|action=b | -a   | unix gnu x bsd deactivate
+| integer | yes | i | a\|action=i | -a=1 | unix gnu x
+| float   | yes | f | a\|action=f | -a 0.1| unix gnu x
+| string  | yes | s | a\|action=s | --action "u" | unix gnu x
+| array   | yes | a | a\|action=a | --action "item" | unix gnu x
+| hash    | yes | h | a\|action=h | -a ":answer(42)" | unix gnu x
+|==================================
+
+== NonOption
+
+`NonOption` can be use to handle `NOA`(short for non-option argument). You can get
+specific `NOA`, match them or call `callback` when matched. The `NOA` index begin from
+**0**.
+
+NOTE: The parser will check `NonOption` after all option argument matched.
+
+=== pos
+
+`NonOption` `pos` capture `NOA` of specific postion, but it's not force user supply an
+`NOA`. The parser will call it's callback when the `NOA` index matched.
+
+NOTE: The parser will check `pos` after `cmd`, and before `main`.
+
+=== cmd
+
+`NonOption` `cmd` always capture the first NOA, and it's force user supply one of
+available cmd. The parser will call it's callback when the `NOA` name matched.
+
+NOTE: The parser will check `cmd` first. If a front `pos` (with index 0) provide,
+parser will not throw exception when `pos` matched, otherwise it will raise an exception
+when all `cmd` not matched.
+
+=== main
+
+`NonOption` `main` capture all NOA, and it's callback will be called when `main`
+exists.
+
+NOTE: The parser will check `main` last.
+
+== Group
+
+`Group` provide a way set up association between multi `Option`, and it has a check method.
+The parser will call it's check method before return to `&getopt`.
+
+=== radio
+
+In `radio` `Group`, `Option` can be set only one at the same time. And it force user
+supply an option when `Option` is not optional.
+
+=== multi
+
+`multi` `Group` is just provide a possibility in having better style of source code.
+Also it force user supply an option when `Option` is not optional.
+
+== getopt
+
+Sub `&getopt` accept one or multi `OptionSet`, pass it and command line argument to the `&parser`.
+`&getopt` can accept traditional getopt(in C) string, and convert it to `OptionSet`.
+Once an `OptionSet` matching success, it will return `Getopt::Advance::ReturnValue`.
+This class contain matched `OptionSet`、all `NOA(Non-Option Argument)`, and `main`'s id and
+return value.
+
+= REFERENCE
+
 == `&getopt`
 
 Sub `&getopt` accept one or multi `OptionSet`, pass it and command line argument
@@ -220,42 +359,81 @@ When `$bsd-style` is True, `&parser` will accept bsd style option.
 +
 When `$x-style` is True, x-style option have priority over unix-style.
 
-== OptionSet
+== `OptionSet`
 
 `OptionSet` is a set of `Option` as the literal mean.
 It provide a lot of interface can manage many `Option`.
 
-* new-from-optstring(Str $optstring is copy)
+* support operator
++
+`OptionSet` support `{}` operator, and the `:exists` adverb.
+You can use `{}` access value of option.
+And use `:exists` check if the option exists.
 
+* new-from-optstring(Str $optstring is copy)
++
 This method can convert the traditional option string, and create an OptionSet
 contain options descripte by that string.
 
 NOTE: You should use `&getopt(@args = @*ARGS, Str $optstring, *%args)` instead of this method.
 
 * keys(::?CLASS::D:)
-
++
 Return the name of all options.
 
 * values(::?CLASS::D:)
-
++
 Return all options of this `OptionSet`.
 
 * get(::?CLASS::D: Str:D $name --> Option)
-
++
 Return an option has the name `$name`.
 If it not exist, it will return an type object `Option`.
 
 * has(::?CLASS::D: Str:D $name --> Bool)
-
++
 Return True if the option exist.
 
 * has(::?CLASS::D: Str:D @name --> Bool)
-
++
 Return True if all of the option exist.
 
 * remove(::?CLASS::D: Str:D $name --> Bool)
-
++
 Remove the option with the name `$name`, or return False if the option not exist.
+
+* remove(::?CLASS::D: Str:D @names --> Bool)
++
+Remove all the options, it will return False if any option not exist.
+
+* reset(::?CLASS::D: Str:D $names) of ::?CLASS
++
+Reset the option to default value. It will call `reset-value` of the option.
+
+* reset(::?CLASS::D: Str:D @names) of ::?CLASS
++
+Reset all the options to default value.
+
+* set-value(::?CLASS::D: Str:D $name, $value, :$callback = True) of ::?CLASS
++
+Set the option's value to `$value`, and call the callback of option when `callback`
+setted.
+
+* set-annotation(::?CLASS::D: Str:D $name, Str:D $annotation) of ::?CLASS
++
+Set the option's annotation, the annotation will be print by `&helper`.
+
+* set-callback(::?CLASS::D: Str:D $name, &callback) of ::?CLASS
++
+Set the callback of option. The callback will be called when option's value setted.
+
+* push(::?CLASS::D: Str:D $opt, :$value, :&callback) of ::?CLASS
+* push(::?CLASS::D: Str:D $opt, Str:D $annotation, :$value, :&callback) of ::?CLASS
++
+Add an option to the `OptionSet`. You can use `:$value` set it's default value.
+And the same of callback.
+
+Add an option
 
 =head1 Option
 
