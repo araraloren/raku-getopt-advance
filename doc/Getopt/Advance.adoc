@@ -370,6 +370,8 @@ It provide a lot of interface can manage many `Option`.
 You can use `{}` access value of option.
 And use `:exists` check if the option exists.
 
+=== Method of option
+
 * new-from-optstring(Str $optstring is copy)
 +
 This method can convert the traditional option string, and create an OptionSet
@@ -427,25 +429,87 @@ Set the option's annotation, the annotation will be print by `&helper`.
 +
 Set the callback of option. The callback will be called when option's value setted.
 
-* push(::?CLASS::D: Str:D $opt, :$value, :&callback) of ::?CLASS
-* push(::?CLASS::D: Str:D $opt, Str:D $annotation, :$value, :&callback) of ::?CLASS
+* push
+** push(::?CLASS::D: Str:D $opt, :$value, :&callback) of ::?CLASS
+** push(::?CLASS::D: Str:D $opt, Str:D $annotation, :$value, :&callback) of ::?CLASS
+
 +
 Add an option to the `OptionSet`. You can use `:$value` set it's default value.
-And the same of callback.
+And the same of callback. The `$annotation` is the help message of the option.
 
-Add an option
+* append
+** append(::?CLASS::D: Str:D $opts) of ::?CLASS
+** append(::?CLASS::D: Str:D $opts, :$optional = True, :$radio!) of ::?CLASS
+** append(::?CLASS::D: Str:D $opts, :$optional = True, :$multi!) of ::?CLASS
+** append(::?CLASS::D: *@optpairs where all(@optpairs) ~~ Pair, :$radio where :!so, :$multi where :!so) of ::?CLASS
+** append(::?CLASS::D: :$optional = True, :$radio!, *@optpairs where all(@optpairs) ~~ Pair) of ::?CLASS
+** append(::?CLASS::D: :$optional = True, :$multi!, *@optpairs where all(@optpairs) ~~ Pair) of ::?CLASS
 
-=head1 Option
++
+Add multi options to the `OptionSet`, make sure the string is split by `;`.
+You can make them as a radio group or multi group by pass `:radio`、`:multi`.
 
-=head1 NonOption
+=== Method of non-option
+
+Like option identified by its name, every non-option has an integer id.
+
+* has(::?CLASS::D: Int:D $id ) of Bool
+
+* remove(Int:D $id)
+
+* get-main(::?CLASS::D:) of Hash
+
+* get-main(::?CLASS::D: Int $id) of NonOption::All [not impl]
+
+* get-cmd(::?CLASS::D:) of Hash
+
+* get-cmd(::?CLASS::D: Int $id) of NonOption::Cmd
+
+* get-cmd(::?CLASS::D: Str $name) of NonOption::Cmd
+
+* get-pos(::?CLASS::D:) of Hash
+
+* get-pos(::?CLASS::D: Int $id) of NonOption::Pos
+
+* get-pos(::?CLASS::D: Str $name, $index) of NonOption::Pos
+
+* reset-cmd(::?CLASS::D: Int $id)
+
+* reset-cmd(::?CLASS::D: Str $name)
+
+* reset-pos(::?CLASS::D: Int $id)
+
+* reset-pos(::?CLASS::D: Str $name, $index)
+
+* insert-main(::?CLASS::D: &callback) of Int
+
+* insert-cmd(::?CLASS::D: Str:D $name) of Int
+
+* insert-cmd(::?CLASS::D: Str:D $name, &callback) of Int
+
+* insert-pos(::?CLASS::D: Str:D $name, &callback, :$front!) of Int
+
+* insert-pos(::?CLASS::D: Str:D $name, &callback, :$last!) of Int
+
+* insert-pos(::?CLASS::D: Str:D $name, $index where Int:D | WhateverCode , &callback) of Int
+
+* check(::?CLASS::D:)
+
+* annotation(::?CLASS::D:)
+
+* clone(*%_)
+
+== `Argument`
+
+== `Exception`
+
+== `Option`
+
+== `NonOption`
 
 =head1 Group
 
 =head1 Types
-
-=head1 Exception
-
-=head1 Argument
 
 =head1 Parser
 
