@@ -401,7 +401,7 @@ sub process-main($optset, @noa) {
     return %ret;
 }
 
-sub process-pos($optset, @noa) {
+sub process-pos($optset, @noa is copy) {
     my %cmd = $optset.get-cmd();
     my %pos = $optset.get-pos();
 
@@ -410,15 +410,19 @@ sub process-pos($optset, @noa) {
             ga-try-next("Need command: < {%cmd.values>>.usage.join("|")} >.");
         } else {
             my $matched = False;
+            my @cmdargs = @noa[1..*-1];
             for %cmd.values() -> $cmd {
                 # check command
                 if $cmd.match-name(@noa[0].value) {
-                    $matched ||= $cmd.($optset, @noa);
+                    # exclude the cmd name
+                    $matched ||= $cmd.($optset, @cmdargs);
                 }
             }
+            # if cmd matched, exclude the cmd name
+            @noa.shift if $matched;
             unless $matched {
                 # when no command matched, check if there
-                # any pos[Int] can match
+                # any front pos[Int] can match
                 for %pos.values() -> $pos {
                     if $pos.index ~~ Int {
                         for @noa -> $noa {
