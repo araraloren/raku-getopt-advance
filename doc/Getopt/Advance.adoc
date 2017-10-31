@@ -452,46 +452,108 @@ You can make them as a radio group or multi group by pass `:radio`、`:multi`.
 === Method of non-option
 
 Like option identified by its name, every non-option has an integer id.
+The `cmd` and `pos` has a state identify they triggered successful, and
+the method `success` of `cmd` and `pos` will return True.
 
 * has(::?CLASS::D: Int:D $id ) of Bool
++
+Return True if the non-option exists.
 
 * remove(Int:D $id)
++
+Remove the non-option.
 
 * get-main(::?CLASS::D:) of Hash
++
+Return all `main` s of the `OptionSet`.
 
-* get-main(::?CLASS::D: Int $id) of NonOption::All [not impl]
+* get-main(::?CLASS::D: Int $id) of NonOption::All
++
+Return the `main` with id `$id`, or return undefined.
 
 * get-cmd(::?CLASS::D:) of Hash
++
+Return all `cmd` s of the `OptionSet`.
 
 * get-cmd(::?CLASS::D: Int $id) of NonOption::Cmd
++
+Return the `cmd` with id `$id`, or return undefined.
 
 * get-cmd(::?CLASS::D: Str $name) of NonOption::Cmd
++
+Return one of `cmd` s with name `$name`, or return undefined.
 
 * get-pos(::?CLASS::D:) of Hash
++
+Return all `pos` s of the `OptionSet`.
 
 * get-pos(::?CLASS::D: Int $id) of NonOption::Pos
++
+Return the `pos` with id `$id`, or return undefined.
 
 * get-pos(::?CLASS::D: Str $name, $index) of NonOption::Pos
++
+Return one of `cmd` s which match the index `$index` and the name `$name`,
+or return undefined.
 
 * reset-cmd(::?CLASS::D: Int $id)
++
+Reset the state of `cmd` with id `$id` to False.
 
 * reset-cmd(::?CLASS::D: Str $name)
++
+Reset the state of all `cmd` s with name `$name` to False.
 
 * reset-pos(::?CLASS::D: Int $id)
++
+Reset the state of `pos` with id `$id` to False.
 
 * reset-pos(::?CLASS::D: Str $name, $index)
++
+Reset the state of all `pos` s with name `$name` to False.
 
 * insert-main(::?CLASS::D: &callback) of Int
++
+Insert a `main` non-option to the `OptionSet`, and return its id.
+The `main` 's callback will be called by `&parser` before return to `&getopt`,
+with the `OptionSet` and all the non-option arguments.
+The `main` is process after `pos` and `cmd`.
 
 * insert-cmd(::?CLASS::D: Str:D $name) of Int
++
+Insert a `cmd` with the name `$name`, and return its id.
+If the `cmd` set by user, the method `success` of it will return True.
+The `cmd` is process before `pos` and `main`.
 
 * insert-cmd(::?CLASS::D: Str:D $name, &callback) of Int
++
+Insert a `cmd` with the name `$name`, and return its id.
+If the `cmd` set by user, the method `success` of it will return True.
+And the callback will be called with the `OptionSet` and all the non-option
+arguments except `cmd` name.
+The `cmd` is process before `pos` and `main`.
 
 * insert-pos(::?CLASS::D: Str:D $name, &callback, :$front!) of Int
++
+Insert a front `pos` with the name `$name`, and return its id.
+If the `pos` set by user, the method `success` of it will return True.
+And the callback will be called with the `OptionSet` and the front(the first) non-option
+argument(the `cmd` name will be exclude from the non-option arguments).
+The front `pos` is process before the other `pos`.
 
 * insert-pos(::?CLASS::D: Str:D $name, &callback, :$last!) of Int
++
+Insert a last `pos` with the name `$name`, and return its id.
+If the `pos` set by user, the method `success` of it will return True.
+And the callback will be called with the `OptionSet` and the last non-option
+argument(the `cmd` name will be exclude from the non-option arguments).
 
 * insert-pos(::?CLASS::D: Str:D $name, $index where Int:D | WhateverCode , &callback) of Int
++
+Insert a `pos` with the name `$name`, and return its id.
+If the `pos` set by user, the method `success` of it will return True.
+And the callback will be called with the `OptionSet` and the non-option
+argument matched the index(the `cmd` name will be exclude from the non-option arguments).
 
 * check(::?CLASS::D:)
 
