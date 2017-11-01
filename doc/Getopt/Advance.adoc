@@ -556,12 +556,22 @@ And the callback will be called with the `OptionSet` and the non-option
 argument matched the index(the `cmd` name will be exclude from the non-option arguments).
 
 * check(::?CLASS::D:)
++
+Check `radio`, `multi` group and non-optional option.
 
 * annotation(::?CLASS::D:)
++
+Use `Terminal::Table` format help message, and return it as an array.
 
 * clone(*%_)
++
+Return an new `OptionSet`.
 
 == `Argument`
++
+This is the command line argument, include the index and value.
+The `&parser` use non-option argument create `Argument`, and pass it to `cmd`,
+`pos` or `main`.
 
 == `Exception`
 
