@@ -404,12 +404,12 @@ sub process-main($optset, @noa) {
 sub process-pos($optset, @noa is copy) {
     my %cmd = $optset.get-cmd();
     my %pos = $optset.get-pos();
-
+    my $matched = False;
+    
     if %cmd.elems > 0 {
         if +@noa == 0 {
             ga-try-next("Need command: < {%cmd.values>>.usage.join("|")} >.");
         } else {
-            my $matched = False;
             my @cmdargs = @noa[1..*-1];
             for %cmd.values() -> $cmd {
                 # check command
@@ -442,7 +442,8 @@ sub process-pos($optset, @noa is copy) {
     if +@noa > 0 {
         for %pos.values() -> $pos {
             for @noa -> $noa {
-                if $pos.match-index(+@noa, $noa.index) {
+	        # fix this index when cmd name matched
+                if $pos.match-index(+@noa, $matched ?? $noa.index - 1 !! $noa.index) {
                     $pos.($optset, $noa);
                 }
             }
