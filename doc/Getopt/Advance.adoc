@@ -565,15 +565,79 @@ Use `Terminal::Table` format help message, and return it as an array.
 
 * clone(*%_)
 +
-Return an new `OptionSet`.
+Return an deep copy of current `OptionSet`.
 
 == `Argument`
-+
+
 This is the command line argument, include the index and value.
 The `&parser` use non-option argument create `Argument`, and pass it to `cmd`,
 `pos` or `main`.
 
+=== Method
+
+* index() of Int
++
+Return index (base on zero) of the command line argument.
+
+* value() of Str
++
+Return value of the command line argument.
+
+* pairup() of Pair
++
+Construct an Pair use the index and value.
+
+* clone(*%_)
++
+Return an deep copy of current `Argument`.
+
 == `Exception`
+
+=== Exception Class
+
+* X::GA::ParseFailed
++
+Exception thrown when `&parser` parse failed.
+
+NOTE: thrown by `ga-try-next(Str $msg)`.
+
+* X::GA::OptionInvalid
++
+Exception thrown when `Option's` value is invalid.
+
+NOTE: thrown by `ga-invalid-value(Str $msg)`.
+
+* X::GA::PosCallFailed
++
+Exception thrown by user.
+
+NOTE: thrown by `ga-try-next-pos(Str $msg)`.
+
+* X::GA::Error
++
+Exception thrown when Option string or Non-Option index invalid.
+
+NOTE: thrown by `ga-raise-error(Str $msg)`.
+
+* X::GA::WantPrintHelper
++
+Exception thrown when user want print help message of current
+`OptionSet`.
+
+NOTE: thrown by `ga-want-helper()`.
+
+* X::GA::WantPrintAllHelper
++
+Exception thrown when user want print help message of all
+`OptionSet`.
+
+NOTE: thrown by `ga-want-all-helper()`.
+
+* X::GA::GroupValueInvalid
++
+Exception thrown when `Group` check failed.
+
+NOTE: thrown by `ga-group-error(Str $msg)`.
 
 == `Option`
 
