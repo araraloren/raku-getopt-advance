@@ -593,8 +593,6 @@ Return an deep copy of current `Argument`.
 
 == `Exception`
 
-=== Exception Class
-
 * X::GA::ParseFailed
 +
 Exception thrown when `&parser` parse failed.
@@ -641,12 +639,150 @@ NOTE: thrown by `ga-group-error(Str $msg)`.
 
 == `Option`
 
+=== Method of role Option
+
+* value()
++
+Return the value of the option.
+
+* long() of Str
++
+Return the long name of the option, return empty string when not setted.
+
+* short() of Str
++
+Return the short name of the option, return empty string when not setted.
+
+* callback()
++
+Return the callback of the option.
+
+* optional() of Bool
++
+Return True if the option is optional. Default is True.
+
+* annotation() of Str
++
+Return the annotation of the option, return empty string when not setted.
+
+* default-value()
++
+Return the default value of the option.
+The default value is value set by programmer when program initialized.
+
+* has-value() of Bool
++
+Return True if value defined.
+
+* has-long() of Bool
++
+Return True if the option has long name.
+
+* has-short() of Bool
++
+Return True if the option has short name.
+
+* has-callback() of Bool
++
+Return True if the option has callback.
+
+* has-annotation() of Bool
++
+Return True if the option has annotation.
+
+* has-default-value() of Bool
++
+Return True if the option has default value.
+
+* set-value(Mu, Bool :$callback)
++
+Set the value of the option, it will call `&callback` when `:callback` passed.
+The child class will check the type of value.
+
+* set-long(Str:D)
++
+Set the long name of the option. You should not call this method directly.
+
+* set-short(Str:D)
++
+Set the short name of the option. You should not call this method directly.
+
+* set-callback(&callback)
++
+Set the callback of the option. You should not call this method directly.
+
+* set-optional(Mu)
++
+Set the option optional. You should not call this method directly.
+
+* set-annotation(Str:D)
++
+Set the annotation of the option. You should not call this method directly.
+
+* set-default-value(Mu)
++
+Set the default value of the option. You should not call this method directly.
+
+* reset-long()
++
+Set the long name to empty string.
+
+* reset-short()
++
+Set the short name to empty string.
+
+* reset-value()
++
+Set the value to default value.
+
+* reset-callback()
++
+Set the callback to `(Callable)`.
+
+* reset-annotation()
++
+Set the annotation to empty string.
+
+* type() of Str
++
+Return the identify name of the option class.
+
+* check() of Bool
++
+Return False when value not set and the option not optional.
+
+* match-name(Str:D) of Bool
++
+Return True if the name equal to any name of the option.
+
+* match-value(Mu) of Bool
++
+Return True if the value type check success.
+
+* lprefix()
++
+Return the long prefix of the option, this method used by `&usage`.
+
+* sprefix()
++
+Return the short prefix of the option, this method used by `&usage`.
+
+* need-argument()
++
+Return True if the option need argument.
+
+* usage() of Str
++
+Return the usage of the option.
+
+* clone(*%_)
++
+Return an deep copy of current option.
+
 == `NonOption`
 
-=head1 Group
+== `Group`
 
-=head1 Types
+== `Types`
 
-=head1 Parser
-
-=end pod
+== `Parser`
