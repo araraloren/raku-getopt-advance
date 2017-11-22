@@ -101,7 +101,7 @@ Usage:
 
 = DESCRIPTION
 
-`Getopt::Advance` is a powerful command line option parsing module, it suppot many
+`Getopt::Advance` is a powerful command line option parsing module, it support many
 style such as: `unix-style`、`gnu-style`、`bsd-style`.etc. It support `Hash`、`Array`
 option compared to traditional command line tools. In addition, it also support
 `radio`、`multi` group mechanism which can manage option realtionship. And to handle
@@ -781,8 +781,53 @@ Return an deep copy of current option.
 
 == `NonOption`
 
+=== Method of role NonOption
+
+* success() of Bool
++
+Return True when the non-option callback called successed.
+
+* callback()
++
+Return callback of the non-option.
+
+* set-callback(&callback)
++
+Set callback of the non-option.
+The child class of `NonOption` will check the callback
+signature.
+
+* has-callback() of Bool
++
+Return True when the non-option has callback.
+
+* match-index(Int $total, Int $index)
++
+Check index of the non-option, `$total` is the
+number of command line non-option arguments.
+
+* match-name(Str $name)
++
+Return True if `$name` equal non-option's name.
+
+* reset-success()
++
+Reset the status of non-option.
+
+* type() of Str
++
+Return the identify name of the non-option class.
+
+* usage() of Str
++
+Return the usage of the non-option.
+
+* clone(*%_)
++
+Return an deep copy of current non-option.
+
 == `Group`
 
-== `Types`
-
 == `Parser`
+
+== `Types`
