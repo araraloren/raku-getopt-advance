@@ -429,7 +429,7 @@ sub process-pos($optset, @noa is copy) {
     # if cmd match, pos check start from the next non-option argument
     for %pos.values -> $pos {
         %need-sort-pos{
-            -> $index {
+            -> $index { # cmd pos index base on 0
                 $index ~~ WhateverCode ?? $index.(+@noa) !! $index;
             }($pos.index)
         }.push: $pos;
