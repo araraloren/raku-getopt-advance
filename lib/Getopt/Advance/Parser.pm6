@@ -470,7 +470,7 @@ sub process-pos($optset, @noa is copy) {
     # remove 0 pos
     %need-sort-pos{0}:delete;
     for %need-sort-pos.keys.sort -> $index {
-        if +@noa > $index {
+        if +@fix-noa > $index && $index >= 0 {
             for @(%need-sort-pos{$index}) -> $pos {
                 try {
                     if $pos.($optset, @fix-noa[$index]) {
