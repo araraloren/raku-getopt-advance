@@ -38,6 +38,8 @@ link:https://github.com/araraloren/perl6-app-snippet[an app used Getopt::Advance
 
 === find-file
 
+link:sample/find-file.p6[find-file]
+
 ==== usage
 
 .help
@@ -69,11 +71,6 @@ $ ./find-file.p6 ../t '1\d.*t$'
 ../t/11-bsd-style.t
 ../t/10-x-style.t
 ----------------------
-
-====  source code
-
-.find-file
-link:sample/find-file.p6[find-file]
 
 = Installation
 
