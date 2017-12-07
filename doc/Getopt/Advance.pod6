@@ -151,15 +151,16 @@ If an `OptionSet` match failed, consider follow serveral situation:
     and print help message of all `OptionSet`. `&getopt` will print helper(when
     help generator `&helper` defined) of all `OptionSet` and exit with 0.
 
-=head2 getopt(       Str $optstring, *%args)
+=head2 &getopt
 
-=head2 getopt(@args, Str $optstring, *%args)
+=item getopt(@args = @*ARGS, Str $optstring, *%args)
 
-=head2 getopt(       *@optsets,      *%args)
+=item getopt(@args = @*ARGS, *@optsets,      *%args)
 
-=head2 getopt(@args, *@optsets,      *%args)
+=head3 positional argument
 
-=head2 named argument of getopt
+ 
+=head3 named argument of &getopt
 
 =head1 OptionSet
 
