@@ -24,6 +24,8 @@ option compared to traditional command line tools. In addition, it also support
 `radio`、`multi` group mechanism which can manage option realtionship. And to handle
 non-option argument, it provide `main`、`pos` and `cmd` feature.
 
+= Usage
+
 == Document
 
 link:doc/Getopt/Advance.adoc[Getopt-Advance]
