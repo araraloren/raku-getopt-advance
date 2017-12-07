@@ -50,7 +50,6 @@ $optset.push(
 );
 $optset.insert-main(
     sub main($optset, @args) {
-        return 0 if $optset<help> || $optset<version>;
         if $optset.get-pos('directory', 0).?success {
             @args.shift;
         } else {
@@ -204,13 +203,14 @@ NOTE: The parser will check `NonOption` after all option argument matched.
 `NOA`. The parser will call it's callback when the `NOA` index matched.
 
 NOTE: The parser will check `pos` after `cmd`, and before `main`.
+The `pos` with index is 0 maybe matched when `cmd` not matched.
 
 === cmd
 
 `NonOption` `cmd` always capture the first NOA, and it's force user supply one of
 available cmd. The parser will call it's callback when the `NOA` name matched.
 
-NOTE: The parser will check `cmd` first. If a front `pos` (with index 0) provide,
+NOTE: The parser will check `cmd` first. If a `pos` (with index 0) provide,
 parser will not throw exception when `pos` matched, otherwise it will raise an exception
 when all `cmd` not matched.
 
@@ -639,6 +639,10 @@ NOTE: thrown by `ga-group-error(Str $msg)`.
 
 == `Option`
 
+The `Option` represent an option of command line argument.
+It can have long or short name, annotation, and
+callback which will called when option value set by user.
+
 === Method of role Option
 
 * value()
@@ -781,6 +785,9 @@ Return an deep copy of current option.
 
 == `NonOption`
 
+The `NonOption` represent NOA(non-option argument) of command line argument.
+It can support create multi command program, or something like `MAIN` of Perl6.
+
 === Method of role NonOption
 
 * success() of Bool
@@ -828,6 +835,73 @@ Return an deep copy of current non-option.
 
 == `Group`
 
+=== Method of role Group
+
+* usage() of Str
++
+Return the usage message of current group.
+
+* has(Str:D $name) of Bool
++
+Return True if current group has option `$name`.
+
+* remove(Str:D $name where $name !~~ /^\s+$/) of Bool
++
+Return True if successed remove option `$name`.
+
+* check()
++
+Check the value of options in current group.
+
+* clone(*%_)
++
+Return an deep copy of current group.
+
 == `Parser`
 
+The `&ga-parser` will first check the options,
+it will set the value provide by user when all option matched.
+Then check the options inside group.
+And next check cmd and pos, call its callback when matched.
+In the end, it will call all mains and return all the return value.
+
+* sub ga-parser( @args, $optset,
+    :$strict,
+    :$x-style where :!so,
+    :$bsd-style,
+    :$autohv ) of Getopt::Advance::ReturnValue
+
+* sub ga-parser( @args, $optset,
+    :$strict,
+    :$x-style where :so,
+    :$bsd-style,
+    :$autohv ) of Getopt::Advance::ReturnValue
++
+Return the return value of each main except autohv
+passed and user set `help` or `version` option.
+
+
 == `Types`
+
+=== Method of class Types::Manager
+
+* has(Str $name) of Bool
++
+Return True if manager has type `$name`.
+
+* innername(Str:D $name) of Str
++
+Return the name of type .
+
+* register(Str:D $name, Mu:U $type) of ::?CLASS:D
++
+Registe a type to the manager.
+
+* create(Str $str, :$value, :&callback)
+* create(Str $str,  Str:D $annotation, :$value, :&callback)
++
+Create a option of type with the given option string.
+
+* clone(*%_)
++
+Return an deep copy of current manager.
