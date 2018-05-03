@@ -286,7 +286,7 @@ If an `OptionSet` match failed, consider follow serveral situation:
 
 * X::GA::ParseFailed
 +
-The `&parser` will call `&ga-try-next` throw an X::GA::ParseFailed exception
+The `&parser`(except `&ga-pre-parser`) will call `&ga-try-next` throw an X::GA::ParseFailed exception
 when `OptionSet` match failed. When `&getopt` caught this exception, it will
 try next `OptionSet` supplied. If no more `OptionSet`, it will print helper
 (when help generator `&helper` defined) of all `OptionSet`,  print error message,
@@ -570,8 +570,9 @@ Return an deep copy of current `OptionSet`.
 == `Argument`
 
 This is the command line argument, include the index and value.
-The `&parser` use non-option argument create `Argument`, and pass it to `cmd`,
-`pos` or `main`.
+The `&ga-parser` use non-option argument create `Argument`, and pass it to `cmd`,
+`pos` or `main`,
+and `&ga-pre-parser` pass all the left command line arguments to the `main`.
 
 === Method
 
@@ -859,11 +860,11 @@ Return an deep copy of current group.
 
 == `Parser`
 
-The `&ga-parser` will first check the options,
+The `&ga-parser` and `&ga-pre-parser` will first check the options,
 it will set the value provide by user when all option matched.
 Then check the options inside group.
-And next check cmd and pos, call its callback when matched.
-In the end, it will call all mains and return all the return value.
+And next check `cmd` and `pos`, call its callback when matched.
+In the end, it will call all `main`s and return all the return value.
 
 * sub ga-parser( @args, $optset,
     :$strict,
@@ -876,9 +877,29 @@ In the end, it will call all mains and return all the return value.
     :$x-style where :so,
     :$bsd-style,
     :$autohv ) of Getopt::Advance::ReturnValue
+
+* sub ga-pre-parser(
+    @args,
+    $optset,
+    :$strict,
+    :$x-style where :!so,
+    :$bsd-style,
+    :$autohv
+) of Getopt::Advance::ReturnValue
+
+* sub ga-pre-parser(
+    @args,
+    $optset,
+    :$strict,
+    :$x-style where :so,
+    :$bsd-style,
+    :$autohv
+) of Getopt::Advance::ReturnValue
 +
-Return the return value of each main except autohv
+`ga-parser` will return the return value of each main except autohv
 passed and user set `help` or `version` option.
+
+NOTE: `ga-pre-parser` only process `main` feature.
 
 
 == `Types`
