@@ -554,3 +554,18 @@ class OptionSet {
         );
     }
 }
+
+#| &wrap-command using `run` execute the $cmd
+sub wrap-command(OptionSet $os, $cmd, @args is copy = @*ARGS, *%args) is export {
+
+    %args<parser> = &ga-pre-parser;
+
+    my $ret = &getopt(@args, $os, |%args);
+
+    try {
+        return run($cmd, | $ret.noa);
+        CATCH {
+            default { }
+        }
+    }
+}
