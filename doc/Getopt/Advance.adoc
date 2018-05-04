@@ -244,6 +244,29 @@ Once an `OptionSet` matching success, it will return `Getopt::Advance::ReturnVal
 This class contain matched `OptionSet`、all `NOA(Non-Option Argument)`, and `main`'s id and
 return value.
 
+== wrap-command
+
+Using `&wrap-command` wrap your command, provide new command line option or even new feature.
+It using `&getopt` parse the command line, then call `&tweak`(provide by user) modify the
+left command line argument(member `noa` of return value), 
+then pass all the command line argument to your command.Here is an example:
+
+.wrapfind
+[source, p6]
+-------------------------------
+use Getopt::Advance;
+
+constant CMD = "find";
+
+wrap-command(
+    OptionSet.new.push("e|extension=s"),  # add -e | --extension option to find command line
+    CMD, 
+    tweak => sub ($os, $ret) {
+        $ret.noa.append("-iname", "*." ~ $os<e>) if $os<e>;
+    }
+);
+-------------------------------
+
 = REFERENCE
 
 == `&getopt`
@@ -358,6 +381,28 @@ When `$bsd-style` is True, `&parser` will accept bsd style option.
 * :$x-style
 +
 When `$x-style` is True, x-style option have priority over unix-style.
+
+== `&wrap-command`
+
+* sub wrap-command(OptionSet $os, $cmd, @args is copy = @*ARGS, :&tweak, *%args) is export
+
+** $cmd
++
+The command you want wraped.
+
+** @args
++
+The command line arguments, default is `@*ARGS`.
+
+** :&tweak
++
+Callback provide by user, signature should be `(OptionSet $os, Getopt::Advance::ReturnValue $ret)`.
+
+** *%args
++
+Left parameters will pass to `&getopt`.
+
+NOTE: &wrap-command using `run` run your command.
 
 == `OptionSet`
 
