@@ -944,7 +944,8 @@ In the end, it will call all `main`s and return all the return value.
 `ga-parser` will return the return value of each main except autohv
 passed and user set `help` or `version` option.
 
-NOTE: `ga-pre-parser` only process `main` feature.
+NOTE: `ga-pre-parser` will not cause any error if an `Option` not exists,
+or `NonOption` not matched.
 
 
 == `Types`
