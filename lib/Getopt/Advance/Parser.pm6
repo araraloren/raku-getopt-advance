@@ -435,14 +435,14 @@ multi sub ga-pre-parser(
                     }
                 }
             } else {
-                @noa.push($args);
+                @noa.push(Argument.new(index => $noa-index++, value => $args));
             }
         } else {
             my @ret = $bsd-style ?? &process-bsd-style($optset, $args) !! [];
             if +@ret > 0 {
                 @oav.append(@ret);
             } else {
-                @noa.push($args);
+                @noa.push(Argument.new(index => $noa-index++, value => $args));
             }
         }
     }
@@ -458,7 +458,7 @@ multi sub ga-pre-parser(
     %ret = &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
     return Getopt::Advance::ReturnValue.new(
         optionset => $optset,
-        noa => @noa,
+        noa => @noa>>.value,
         return-value => %ret,
     );
 }
@@ -520,7 +520,7 @@ multi sub ga-pre-parser(
                     }
                 }
             } else {
-               @noa.push($args);
+               @noa.push(Argument.new(index => $noa-index++, value => $args));
            }
         } else {
             my @ret = $bsd-style ?? &process-bsd-style($optset, $args) !! [];
@@ -543,7 +543,7 @@ multi sub ga-pre-parser(
     %ret = &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
     return Getopt::Advance::ReturnValue.new(
         optionset => $optset,
-        noa => @noa,
+        noa => @noa>>.value,
         return-value => %ret,
     );
 }
