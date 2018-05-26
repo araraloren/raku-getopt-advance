@@ -569,12 +569,14 @@ sub will-not-process-main($optset) {
     $optset.has('help') && $optset<help>;
 }
 
+# all the modify to the noa will not effect to other main
 sub process-main($optset, @noa) {
     my %all = $optset.get-main();
     my %ret;
 
     for %all -> $all {
-        %ret{$all.key} = $all.value.($optset, @noa);
+        my @mnoa = @noa;
+        %ret{$all.key} = $all.value.($optset, @mnoa);
     }
     return %ret;
 }

@@ -216,8 +216,7 @@ when all `cmd` not matched.
 
 === main
 
-`NonOption` `main` capture all NOA, and it's callback will be called when `main`
-exists.
+`NonOption` `main` capture all `NOA`, and it's callback will be called by the parser.
 
 NOTE: The parser will check `main` last.
 
