@@ -627,6 +627,7 @@ sub process-pos($optset, @noa is copy) {
             try {
                 if $front.($optset, @fix-noa[0]) {
                     $front-matched = True;
+                    $front.set-value(@fix-noa[0].value);
                     last;
                 }
                 CATCH {
@@ -656,6 +657,7 @@ sub process-pos($optset, @noa is copy) {
             for @(%need-sort-pos{$index}) -> $pos {
                 try {
                     if $pos.($optset, @fix-noa[$index]) {
+                        $pos.set-value(@fix-noa[$index].value);
                         last;
                     }
                     CATCH {
@@ -715,6 +717,7 @@ sub process-pos-quite($optset, @noa is copy) {
         for @(%need-sort-pos{0}) -> $front {
             try {
                 if $front.($optset, @fix-noa[0]) {
+                    $front.set-value(@fix-noa[0].value);
                     $front-matched = True;
                     last;
                 }
@@ -745,6 +748,7 @@ sub process-pos-quite($optset, @noa is copy) {
             for @(%need-sort-pos{$index}) -> $pos {
                 try {
                     if $pos.($optset, @fix-noa[$index]) {
+                        $pos.set-value(@fix-noa[$index].value);
                         last;
                     }
                     CATCH {
@@ -758,4 +762,3 @@ sub process-pos-quite($optset, @noa is copy) {
         }
     }
 }
-
