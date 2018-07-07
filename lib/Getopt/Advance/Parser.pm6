@@ -32,9 +32,9 @@ grammar Option::Grammar {
 
 	token option:sym<dl>{ '--/'<optname> }
 
-	token option:sym<lv>{ '-'  <optname> '=' <optvalue> }
+	token option:sym<sv>{ '-'  <optname> '=' <optvalue> }
 
-	token option:sym<sv>{ '--' <optname> '=' <optvalue>	}
+	token option:sym<lv>{ '--' <optname> '=' <optvalue>	}
 
 	token optname {
 		<-[\=]>+
@@ -50,6 +50,7 @@ enum Parser::Type (
     :SHORT(2),
     :WITH-ARG(3),
     :COMPONENT(4),
+    :WEAK(5),
 );
 
 class Option::Actions {
@@ -112,6 +113,7 @@ class Option::Actions {
                     return ($opt, $!value);
                 } elsif $can-throw {
                     &ga-try-next("{$opt.usage}: {$!value} not correct!");
+                    return ();
                 }
             }
         }
@@ -139,6 +141,7 @@ class Option::Actions {
                     return ($opt, $!value);
                 } elsif $can-throw {
                     &ga-try-next("{$opt.usage}: {$!value} not correct!");
+                    return ();
                 }
             }
         }
@@ -152,7 +155,7 @@ class Option::Actions {
 			my ($optname, $value) = ($!name.substr(0, 1), $!name.substr(1));
 
 			if $optset.get($optname) -> $opt {
-				if $optname eq $opt.short {
+				if $optname eq $opt.short && $opt.need-argument {
                     $!type = Parser::Type::WITH-ARG;
 					return ($opt, $value);
 				}
@@ -168,13 +171,13 @@ class Option::Actions {
 
         if +@opts > 1 {
             if $optset.get(@opts[* - 1]) -> $opt {
-                if $opt.need-argument and $!value == False {
-                    &ga-try-next("Option {$opt.usage}: not support deactivate style!")
+                if (!$opt.need-argument) and (!$!value) {
+                    &ga-try-next("Option {$opt.usage}: component option not support deactivate style!")
                         if $can-throw;
                     return ();
                 }
-                for @opts {
-                    if $optset.get($_).need-argument {
+                for @opts[0,*-2] {
+                    if (!$optset.has($_)) || $optset.get($_).need-argument {
                         &ga-try-next("Option {$optset.get($_).usage}: need argument!")
                             if $can-throw;
                         return ();
@@ -192,6 +195,7 @@ class Option::Actions {
                     return ($!name, $!value);
                 } elsif $can-throw {
                     &ga-try-next("{$opt.usage}: {$!value} not correct!");
+                    return ();
                 }
             }
         }
@@ -369,6 +373,180 @@ multi sub ga-parser(
     );
 }
 
+# check name
+# check value
+# then parse over
+# only support `main`
+multi sub ga-pre-parser(
+    @args,
+    $optset,
+    :$strict,
+    :$x-style where :!so,
+    :$bsd-style,
+    :$autohv
+) of Getopt::Advance::ReturnValue is export {
+    my $count = +@args;
+    my $noa-index = 0;
+    my @oav = [];
+    my @noa = [];
+
+    loop (my $index = 0;$index < $count;$index++) {
+        my $args := @args[$index];
+        my ($name, $value, $long);
+        my $actions = Option::Actions.new(type => Parser::Type::WEAK);
+        my &get-value = sub () {
+            if ($index + 1 < $count) {
+                # $index increment when everything ok
+                # and $value would be available in next guess
+                # when match-value failed or exception will be throwed
+                unless $strict && (so @args[$index + 1].starts-with('-'|'--'|'--/')) {
+                    return @args[++$index];
+                }
+            }
+        };
+
+        # not in x-style
+        if Option::Grammar.parse($args, :$actions) {
+            my @ret = $actions.long ??
+                $actions.guess-long-x-option($optset, &get-value, False) !!
+                (
+                    $actions.guess-short-option($optset, &get-value, False) ||
+                    $actions.guess-with-argument($optset, False) ||
+                    $actions.guess-component-option($optset, &get-value, False) ||
+                    $actions.guess-long-x-option($optset, &get-value, False)
+                );
+            if +@ret > 0 {
+                given $actions.type {
+                    when Parser::Type::COMPONENT {
+                        my @opts = @ret[0].comb;
+                        @oav.push(OptionValueSetter.new(
+                            optref => @opts[* - 1],
+                            value  => @ret[1],
+                        ));
+                        @oav.push(OptionValueSetter.new(
+                            optref => $optset.get($_), :value
+                        )) for @opts[0 ... * - 2];
+                    }
+                    default {
+                        @oav.push(OptionValueSetter.new(
+                            optref => @ret[0],
+                            value  => @ret[1],
+                        ));
+                    }
+                }
+            } else {
+                @noa.push(Argument.new(index => $noa-index++, value => $args));
+            }
+        } else {
+            my @ret = $bsd-style ?? &process-bsd-style($optset, $args) !! [];
+            if +@ret > 0 {
+                @oav.append(@ret);
+            } else {
+                @noa.push(Argument.new(index => $noa-index++, value => $args));
+            }
+        }
+    }
+    # set value before non-option and main
+    .set-value for @oav;
+    # check option group and value optional
+    $optset.check();
+    # call callback of non-option
+    # will not change the @noa
+    &process-pos-quite($optset, @noa);
+    # call main
+    my %ret;
+    %ret = &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
+    return Getopt::Advance::ReturnValue.new(
+        optionset => $optset,
+        noa => @noa>>.value,
+        return-value => %ret,
+    );
+}
+
+# check name
+# check value
+# then parse over
+multi sub ga-pre-parser(
+    @args,
+    $optset,
+    :$strict,
+    :$x-style where :so,
+    :$bsd-style,
+    :$autohv
+) of Getopt::Advance::ReturnValue is export {
+    my $count = +@args;
+    my $noa-index = 0;
+    my @oav = [];
+    my @noa = [];
+
+    loop (my $index = 0;$index < $count;$index++) {
+        my $args := @args[$index];
+        my ($name, $value, $long);
+        my $actions = Option::Actions.new(type => Parser::Type::WEAK);
+        my &get-value = sub () {
+            if ($index + 1 < $count) {
+                unless $strict && (so @args[$index + 1].starts-with('-'|'--'|'--/')) {
+                    return @args[++$index];
+                }
+            }
+        };
+
+        if Option::Grammar.parse($args, :$actions) {
+            my @ret = $actions.long ??
+                $actions.guess-long-x-option($optset, &get-value, False) !!
+                (
+                    $actions.guess-long-x-option($optset, &get-value, False) ||
+                    $actions.guess-short-option($optset, &get-value, False) ||
+                    $actions.guess-with-argument($optset, False) ||
+                    $actions.guess-component-option($optset, &get-value, False)
+                );
+            if +@ret > 0 {
+                given $actions.type {
+                    when Parser::Type::COMPONENT {
+                        my @opts = @ret[0].comb;
+                        @oav.push(OptionValueSetter.new(
+                            optref => @opts[* - 1],
+                            value  => @ret[1],
+                        ));
+                        @oav.push(OptionValueSetter.new(
+                            optref => $optset.get($_), :value
+                        )) for @opts[0 ... * - 2];
+                    }
+                    default {
+                        @oav.push(OptionValueSetter.new(
+                            optref => @ret[0],
+                            value  => @ret[1],
+                        ));
+                    }
+                }
+            } else {
+               @noa.push(Argument.new(index => $noa-index++, value => $args));
+           }
+        } else {
+            my @ret = $bsd-style ?? &process-bsd-style($optset, $args) !! [];
+            if +@ret > 0 {
+                @oav.append(@ret);
+            } else {
+                @noa.push(Argument.new(index => $noa-index++, value => $args));
+            }
+        }
+    }
+    # set value before non-option and main
+    .set-value for @oav;
+    # check option group and value optional
+    $optset.check();
+    # call callback of non-option
+    # will not change the @noa
+    &process-pos-quite($optset, @noa);
+    # call main
+    my %ret;
+    %ret = &process-main($optset, @noa) if !$autohv || !&will-not-process-main($optset);
+    return Getopt::Advance::ReturnValue.new(
+        optionset => $optset,
+        noa => @noa>>.value,
+        return-value => %ret,
+    );
+}
 
 sub process-bsd-style($optset, $arg) {
     my $check = True;
@@ -391,55 +569,194 @@ sub will-not-process-main($optset) {
     $optset.has('help') && $optset<help>;
 }
 
+# all the modify to the noa will not effect to other main
 sub process-main($optset, @noa) {
     my %all = $optset.get-main();
     my %ret;
 
     for %all -> $all {
-        %ret{$all.key} = $all.value.($optset, @noa);
+        my @mnoa = @noa;
+        %ret{$all.key} = $all.value.($optset, @mnoa);
     }
     return %ret;
 }
 
-sub process-pos($optset, @noa) {
+sub process-pos($optset, @noa is copy) {
     my %cmd = $optset.get-cmd();
     my %pos = $optset.get-pos();
+    my %need-sort-pos;
+    my ($cmd-matched, $front-matched) = (False, False);
 
+    # check cmd
     if %cmd.elems > 0 {
         if +@noa == 0 {
             ga-try-next("Need command: < {%cmd.values>>.usage.join("|")} >.");
         } else {
-            my $matched = False;
+            my @cmdargs = @noa[1..*-1];
             for %cmd.values() -> $cmd {
                 # check command
                 if $cmd.match-name(@noa[0].value) {
-                    $matched ||= $cmd.($optset, @noa);
+                    if $cmd.($optset, @cmdargs) {
+                        # exclude the cmd name
+                        $cmd-matched = True;
+                        last;
+                    }
                 }
             }
-            unless $matched {
-                # when no command matched, check if there
-                # any pos[Int] can match
-                for %pos.values() -> $pos {
-                    if $pos.index ~~ Int {
-                        for @noa -> $noa {
-                            if $pos.match-index(+@noa, 0) {
-                                $matched = True;
-                            }
+        }
+    }
+
+    # pos index base on 0
+    # classify the pos base on index
+    for %pos.values -> $pos {
+        %need-sort-pos{
+            -> $index {
+                $index ~~ WhateverCode ?? $index.(+@noa) !! $index;
+            }($pos.index)
+        }.push: $pos;
+    }
+
+    my @fix-noa := @noa;
+
+    # check front pos
+    # maybe add by insert-pos :front or
+    # insert-pos with index 0 or
+    # insert-pos with * - 1
+    if (not $cmd-matched) && +@noa > 0 && (%need-sort-pos{0}:exists) {
+        for @(%need-sort-pos{0}) -> $front {
+            try {
+                if $front.($optset, @fix-noa[0]) {
+                    $front-matched = True;
+                    $front.set-value(@fix-noa[0].value);
+                    last;
+                }
+                CATCH {
+                    when X::GA::PosCallFailed {}
+                    default {
+                        .throw();
+                    }
+                }
+            }
+        }
+    }
+
+    if (%cmd.elems > 0 && not $cmd-matched)
+        && ((not %need-sort-pos{0}:exists)
+            || ((%need-sort-pos{0}:exists)
+                && %need-sort-pos{0}.elems > 0
+                && not $front-matched)) {
+        # no cmd or pos matched, and pos is optional
+        ga-try-next("Not recongnize command: {@noa[0].value}.");
+    }
+
+    # check other pos
+    # remove 0 pos
+    %need-sort-pos{0}:delete;
+    for %need-sort-pos.keys.sort -> $index {
+        if +@fix-noa > $index && $index >= 0 {
+            for @(%need-sort-pos{$index}) -> $pos {
+                try {
+                    if $pos.($optset, @fix-noa[$index]) {
+                        $pos.set-value(@fix-noa[$index].value);
+                        last;
+                    }
+                    CATCH {
+                        when X::GA::PosCallFailed {}
+                        default {
+                            .throw();
                         }
                     }
                 }
             }
-            unless $matched {
-                # no cmd or pos matched
-                ga-try-next("Not recongnize command: {@noa[0].value}.");
+        }
+    }
+}
+
+sub process-pos-quite($optset, @noa is copy) {
+    my %cmd = $optset.get-cmd();
+    my %pos = $optset.get-pos();
+    my %need-sort-pos;
+    my ($cmd-matched, $front-matched) = (False, False);
+
+    # check cmd
+    if %cmd.elems > 0 {
+        if +@noa == 0 {
+            return;
+        } else {
+            my @cmdargs = @noa[1..*-1];
+            for %cmd.values() -> $cmd {
+                # check command
+                if $cmd.match-name(@noa[0].value) {
+                    if $cmd.($optset, @cmdargs) {
+                        # exclude the cmd name
+                        $cmd-matched = True;
+                        last;
+                    }
+                }
             }
         }
     }
-    if +@noa > 0 {
-        for %pos.values() -> $pos {
-            for @noa -> $noa {
-                if $pos.match-index(+@noa, $noa.index) {
-                    $pos.($optset, $noa);
+
+    # pos index base on 0
+    # classify the pos base on index
+    for %pos.values -> $pos {
+        %need-sort-pos{
+            -> $index {
+                $index ~~ WhateverCode ?? $index.(+@noa) !! $index;
+            }($pos.index)
+        }.push: $pos;
+    }
+
+    my @fix-noa := @noa;
+
+    # check front pos
+    # maybe add by insert-pos :front or
+    # insert-pos with index 0 or
+    # insert-pos with * - 1
+    if (not $cmd-matched) && +@noa > 0 && (%need-sort-pos{0}:exists) {
+        for @(%need-sort-pos{0}) -> $front {
+            try {
+                if $front.($optset, @fix-noa[0]) {
+                    $front.set-value(@fix-noa[0].value);
+                    $front-matched = True;
+                    last;
+                }
+                CATCH {
+                    when X::GA::PosCallFailed {}
+                    default {
+                        .throw();
+                    }
+                }
+            }
+        }
+    }
+
+    if (%cmd.elems > 0 && not $cmd-matched)
+        && ((not %need-sort-pos{0}:exists)
+            || ((%need-sort-pos{0}:exists)
+                && %need-sort-pos{0}.elems > 0
+                && not $front-matched)) {
+        # no cmd or pos matched, and pos is optional
+        return;
+    }
+
+    # check other pos
+    # remove 0 pos
+    %need-sort-pos{0}:delete;
+    for %need-sort-pos.keys.sort -> $index {
+        if +@fix-noa > $index && $index >= 0 {
+            for @(%need-sort-pos{$index}) -> $pos {
+                try {
+                    if $pos.($optset, @fix-noa[$index]) {
+                        $pos.set-value(@fix-noa[$index].value);
+                        last;
+                    }
+                    CATCH {
+                        when X::GA::PosCallFailed {}
+                        default {
+                            .throw();
+                        }
+                    }
                 }
             }
         }
