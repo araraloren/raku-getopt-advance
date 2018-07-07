@@ -145,12 +145,7 @@ class OptionSet {
     has $.types;
     has $!counter;
 
-    method new-from-optstring(Str $optstring is copy) {
-        $optstring ~~ s:g/(\w)<!before \:>/$0=b;/;
-        $optstring ~~ s:g/(\w)\:/$0=s;/;
 
-        OptionSet.new().append($optstring);
-    }
 
     submethod TWEAK() {
         if not $!types.defined {
@@ -162,6 +157,12 @@ class OptionSet {
                    .register('h', Option::Hash)
                    .register('f', Option::Float);
         }
+    }
+
+    method from-optstring(::?CLASS::D: Str:D $optstring is copy) of ::?CLASS {
+        $optstring ~~ s:g/(\w)<!before \:>/$0=b;/;
+        $optstring ~~ s:g/(\w)\:/$0=s;/;
+        self.append($optstring);
     }
 
     method keys(::?CLASS::D:) {
