@@ -1,34 +1,38 @@
 
 use Getopt::Advance::Exception;
 
-class SubInfo is export {
-    has $.cmd is rw;
-    has @.pos;
-    has @.named;
+sub guess-the-type($p) {
+    %(
+        Int => 'i',
+        IntStr => 'i',
+        Str => 's',
+        Array => 'a',
+        Hash => 'h',
+        Num => 'f',
+        Rat => 'f',
+        Bool => 'b',
+        Any => 's',
+        Positional => 'a',
+        Associative => 'h',
+    ){ $p.type.^name };
+}
 
-    sub extract-info(Parameter $p) {
-        say $p;
-    }
+multi sub mixin-option($os, Sub $s) is export {
+    my Bool $slurpy = False;
 
-    multi method new(Method $m) {
-
-    }
-
-    multi method new(Sub $s) {
-        my (@pos, @named);
-
-        for @($s.signature.params) -> $param {
-            extract-info($param);
+    $os.insert-cmd($s.name);
+    for @($s.signature.params) -> $p {
+        if $p.slurpy {
+            $slurpy = True;
+            next;
         }
-
-        self.bless(cmd => $s.name);
+        if $p.named {
+            $os.push("{}={guess-the-type($p)}");
+        }
     }
+    $os;
+}
 
-    multi method new(::T) {
+multi sub mixin-option($os, Method $m) is export {
 
-    }
-
-    method mixin($os) {
-
-    }
 }
