@@ -1,12 +1,19 @@
 
+use Getopt::Advance::Utils;
 use Getopt::Advance::Exception;
 
-constant BOOLEAN is export = "boolean";
-constant INTEGER is export = "integer";
-constant STRING  is export = "string";
-constant FLOAT   is export = "float";
-constant ARRAY   is export = "array";
-constant HASH    is export = "hash";
+unit module Getopt::Advance::Option:api<2>;
+
+constant BOOLEAN  = "boolean";
+constant INTEGER  = "integer";
+constant STRING   = "string";
+constant FLOAT    = "float";
+constant ARRAY    = "array";
+constant HASH     = "hash";
+
+class Style is export {
+    enum < XOPT LONG SHORT ZIPARG COMB DEFAULT >;
+}
 
 role Option {
     method value { ... }
@@ -66,6 +73,7 @@ role Option::Base does Option {
     has $.annotation = "";
     has $.value;
     has $.default-value;
+    has $.supply;
 
     method callback {
         &!callback;
@@ -203,6 +211,7 @@ role Option::Base does Option {
             annotation  => %_<annotation> // $!annotation.clone,
             value       => %_<value> // $!value.clone,
             default-value=> %_<default-value> // $!default-value.clone,
+            supply      => %_<supply> // $!supply.clone,
             |%_
         );
     }
@@ -222,8 +231,20 @@ class Option::Boolean does Option::Base {
                 self.set-value($value, :!callback);
             }
         }
+        $!supply.tap(
+            -> $v {
+                given $v {
+                    if ! .success {
+                        if .match-name(self) {
+                            .mark-matched;
+                            self.set-value(True, :callback);
+                        }
+                    }
+                }
+            }
+        );
     }
-    
+
     method value {
         so $!value;
     }
@@ -241,214 +262,6 @@ class Option::Boolean does Option::Base {
     method need-argument of Bool { False; }
 
     method match-value(Mu:D) {
-        True;
-    }
-}
-
-
-class Option::Integer does Option::Base {
-    submethod TWEAK(:$value) {
-        if $value.defined {
-            $!default-value = $value;
-            self.set-value($value, :!callback);
-        }
-    }
-
-    method set-value(Mu:D $value, Bool :$callback) {
-        if $value ~~ Int {
-            self.Option::Base::set-value($value, :$callback);
-        } elsif so +$value {
-            self.Option::Base::set-value(+$value, :$callback);
-        } else {
-            ga-invalid-value("{self.usage()}: Need integer.");
-        }
-    }
-
-    method type() {
-        "integer";
-    }
-
-    method match-value(Mu:D $value) {
-        $value ~~ Int || so +$value;
-    }
-}
-
-class Option::Float does Option::Base {
-    submethod TWEAK(:$value) {
-        if $value.defined {
-            $!default-value = $value;
-            self.set-value($value, :!callback);
-        }
-    }
-
-    method set-value(Mu:D $value, Bool :$callback) {
-        if $value ~~ FatRat {
-            self.Option::Base::set-value($value, :$callback);
-        } elsif so $value.FatRat {
-            self.Option::Base::set-value($value.FatRat, :$callback);
-        } else {
-            ga-invalid-value("{self.usage()}: Need float.");
-        }
-    }
-
-    method type() {
-        "float";
-    }
-
-    method match-value(Mu:D $value) {
-        $value ~~ FatRat || so $value.FatRat;
-    }
-}
-
-class Option::String does Option::Base {
-    submethod TWEAK(:$value) {
-        if $value.defined {
-            $!default-value = $value;
-            self.set-value($value, :!callback);
-        }
-    }
-
-    method set-value(Mu:D $value, Bool :$callback) {
-        if $value ~~ Str {
-            self.Option::Base::set-value($value, :$callback);
-        } elsif so ~$value {
-            self.Option::Base::set-value(~$value, :$callback);
-        } else {
-            ga-invalid-value("{self.usage()}: Need string.");
-        }
-    }
-
-    method type() {
-        "string";
-    }
-
-    method match-value(Mu:D $value) {
-        $value ~~ Str || so ~$value;
-    }
-}
-
-class Option::Hash does Option::Base {
-    submethod TWEAK(:$value) {
-        if $value.defined {
-            unless $value ~~ Hash {
-                ga-invalid-value("{self.usage()}: Need a Hash.");
-            }
-            $!value = $!default-value = $value;
-        }
-    }
-
-    method value {
-        $!value ?? %$!value !! Hash;
-    }
-
-    # This actually is a push-value
-    method set-value(Mu:D $value, Bool :$callback) {
-        my %hash = $!value.defined ?? %$!value !! Hash.new;
-        if $value ~~ Pair {
-            %hash.push($value);
-        } elsif try so $value.pairup {
-            %hash.push($value.pairup);
-        } elsif (my $evalue = self!parse-as-pair($value)) {
-            %hash.push($evalue);
-        } else {
-            ga-invalid-value("{self.usage()}: Need a Pair.");
-        }
-        self.Option::Base::set-value(%hash, :$callback);
-    }
-
-    my grammar Pair::Grammar {
-        token TOP { ^ <pair> $ }
-
-        proto rule pair {*}
-
-        rule pair:sym<arrow> { <key> '=>' <value> }
-
-        rule pair:sym<colon> { ':' <key> '(' $<value> = (.+ <!before $>) ')' }
-
-    	rule pair:sym<angle> { ':' <key> '<' $<value> = (.+ <!before $>) '>' }
-
-        rule pair:sym<true> { ':' <key> }
-
-        rule pair:sym<false> { ':' '!' <key> }
-
-        token value { .+ }
-
-        token key { <[0..9A..Za..z\-_\'\"]>+ }
-    }
-
-    my class Pair::Actions {
-        method TOP($/) { $/.make: $<pair>.made; }
-
-        method pair:sym<arrow>($/) {
-            $/.make: $<key>.made => $<value>.Str;
-        }
-
-        method pair:sym<colon>($/) {
-            $/.make: $<key>.made => $<value>.Str;
-        }
-
-        method pair:sym<true>($/) {
-            $/.make: $<key>.made => True;
-        }
-
-        method pair:sym<false>($/) {
-            $/.make: $<key>.made => False;
-        }
-
-        method pair:sym<angle>($/) {
-            $/.make: $<key>.made => $<value>.Str;
-        }
-
-        method value($/) {
-            $/.make: ~$/;
-        }
-
-        method key($/) {
-            $/.make: ~$/;
-        }
-    }
-
-    method !parse-as-pair($value) {
-        my $r = Pair::Grammar.parse($value, :actions(Pair::Actions));
-
-        return $r.made if $r;
-    }
-
-    method type() {
-        "hash";
-    }
-
-    method match-value(Mu:D $value) {
-        $value ~~ Pair || (try so $value.pairup) || Pair::Grammar.parse($value).so;
-    }
-}
-
-class Option::Array does Option::Base {
-    submethod TWEAK(:$value) {
-        if $value.defined {
-            unless $value ~~ Positional {
-                ga-invalid-value("{self.usage()}: Need an Positional.");
-            }
-            $!value = $!default-value = Array.new(|$value);
-        }
-    }
-
-    method value {
-        $!value ?? @$!value !! Array;
-    }
-
-    # This actually is a push-value
-    method set-value($value, Bool :$callback) {
-        my @array = $!value ?? @$!value !! Array.new;
-        @array.push($value);
-        self.Option::Base::set-value(@array, :$callback);
-    }
-
-    method type() {
-        "array";
-    }
-
-    method match-value(Mu:D $value) {
         True;
     }
 }

@@ -13,8 +13,16 @@ sub ga-try-next(Str $msg) is export {
 
 class X::GA::OptionInvalid is X::GA::Exception { }
 
-sub ga-invalid-value(Str $msg) is export {
+sub ga-invalid-option(Str $msg) is export {
     X::GA::OptionInvalid
+    .new(message => $msg)
+    .throw;
+}
+
+class X::GA::OptionValueInvalid is X::GA::Exception { }
+
+sub ga-invalid-value(Str $msg) is export {
+    X::GA::OptionValueInvalid
     .new(message => $msg)
     .throw;
 }
