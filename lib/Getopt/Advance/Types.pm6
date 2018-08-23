@@ -1,6 +1,7 @@
 
-use Getopt::Advance::Option;
-use Getopt::Advance::Exception;
+use Getopt::Advance::Utils:api<2>;
+
+unit module Getopt::Advance::Types:api<2>;
 
 my grammar Grammar::Option {
 	rule TOP {
@@ -89,8 +90,9 @@ my class Actions::Option {
 	}
 }
 
-class Types::Manager {
-    has %.types handles <AT-KEY keys values kv pairs>;
+class TypesManager is export {
+    has $.owner; #| we need hold a OptionSet Reference
+    has %.types handles <AT-KEY keys values>;
 
     method has(Str $name --> Bool) {
         %!types{$name}:exists;
@@ -100,73 +102,58 @@ class Types::Manager {
         %!types{$name}.type;
     }
 
+    method type(Str $name) {
+        %!types{$name};
+    }
+
     method register(Str:D $name, Mu:U $type --> ::?CLASS:D) {
+        unless $type.^lookup("type") {
+            die "Implement a type method as the identification of type {$type.^name}";
+        }
         if not self.has($name) {
             %!types{$name} = $type;
         }
         self;
     }
 
-    sub opt-string-parse(Str $str) {
+    sub parseOptString(Str $str) {
         my $action = Actions::Option.new;
         unless Grammar::Option.parse($str, :actions($action)) {
-            ga-raise-error("{$str}: Unable to parse option string!");
+            die "Unable to parse option string: {$str}!";
         }
 		if $action.opt-deactivate && $action.opt-type ne "b" {
-			ga-raise-error("{$str}: Deactivate style only support boolean option!");
+			die "Deactivate style only support boolean option: {$str}!";
 		}
         return $action;
     }
 
-    #`( Option::Base
-        has @.name;
-        has &.callback;
-        has $.optional;
-        has $.annotation;
-        has $.value;
-        has $.default-value;
-    )
-    multi method create(Str $str, :$value, :&callback) {
-        my $setting = &opt-string-parse($str);
+    method create(Str $str, *%args) {
+        my $setting = &parseOptString($str);
         my $option;
+        my %realargs;
 
-        unless %!types{$setting.opt-type} ~~ Option {
-            ga-raise-error("{$setting.opt-type}: Invalid option type!");
+        unless self.has($setting.opt-type) {
+           die "Invalid option type: {$setting.opt-type}";
         }
-        $option = %!types{$setting.opt-type}.new(
-			short 		=> $setting.opt-short // "",
-            long        => $setting.opt-long // "",
-            callback    => &callback,
-            optional    => $setting.opt-optional,
-            value       => $value,
-            deactivate  => $setting.opt-deactivate,
-        );
-        $option;
-    }
 
-    multi method create(Str $str,  Str:D $annotation, :$value, :&callback) {
-        my $setting = &opt-string-parse($str);
-        my $option;
-
-        unless %!types{$setting.opt-type} ~~ Option {
-            ga-raise-error("{$setting.opt-type}: Invalid option type!");
+        if %args<owner>:exists {
+            Debug::warn("Choose another name, owner is a reversed named argument of TypesManager");
         }
-        $option = %!types{$setting.opt-type}.new(
-			short 		=> $setting.opt-short // "",
-			long        => $setting.opt-long // "",
-            callback    => &callback,
-            optional    => $setting.opt-optional,
-            value       => $value,
-            annotation  => $annotation,
-            deactivate  => $setting.opt-deactivate,
-        );
-        $option;
-    }
 
-	method clone(*%_) {
-		nextwith(
-			types => %_<types> // %!types.clone,
-			|%_,
-		);
-	}
+        if not $str.contains("|") {
+            %realargs<name> = %args<name> // $setting.opt-short // $setting.opt-long // "";
+        }
+        %realargs<owner>        = $!owner;
+        %realargs<short>        = %args<short> // $setting.opt-short // "";
+        %realargs<long>         = %args<long>  // $setting.opt-long  // "";
+        %realargs<optional>     = %args<optional> // $setting.opt-optional;
+        %realargs<deactivate>   = %args<deactivate> // $setting.opt-deactivate;
+        %args< short long optional deactivate >:delete;
+        Debug::debug("create type {$str} with {%realargs.keys}");
+        $option = self.type($setting.opt-type).new(
+            |%realargs,
+            |%args,
+        );
+        return $option;
+    }
 }

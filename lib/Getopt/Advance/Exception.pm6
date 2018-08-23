@@ -1,4 +1,6 @@
 
+unit module Getopt::Advance::Exception:api<2>;
+
 class X::GA::Exception is Exception {
     has Str $.message;
 }

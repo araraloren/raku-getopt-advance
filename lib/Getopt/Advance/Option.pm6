@@ -1,6 +1,6 @@
 
-use Getopt::Advance::Utils;
-use Getopt::Advance::Exception;
+use Getopt::Advance::Utils:api<2>;
+use Getopt::Advance::Exception:api<2>;
 
 unit module Getopt::Advance::Option:api<2>;
 
@@ -11,44 +11,131 @@ constant FLOAT    = "float";
 constant ARRAY    = "array";
 constant HASH     = "hash";
 
-class Style is export {
-    enum < XOPT LONG SHORT ZIPARG COMB DEFAULT >;
-}
+constant QUITBLOCK = sub (\ex) { };
 
 role Option {
-    method value { ... }
-    method long of Str { ... }
-    method short of Str { ... }
-    method callback { ... }
-    method optional of Bool { ... }
-    method annotation of Str { ... }
-    method default-value { ... }
-    method set-value(Mu, Bool :$callback) { ... }
-    method set-long(Str:D) { ... }
-    method set-short(Str:D) { ... }
-    method set-callback(&callback) { ... }
-    method set-optional(Mu) { ... }
-    method set-annotation(Str:D) { ... }
-    method set-default-value(Mu) { ... }
-    method has-value of Bool { ... }
-    method has-long of Bool { ... }
-    method has-short of Bool { ... }
-    method has-callback of Bool { ... }
-    method has-annotation of Bool { ... }
-    method has-default-value of Bool { ... }
-    method reset-long { ... }
-    method reset-short { ... }
-    method reset-value { ... }
-    method reset-callback { ... }
-    method reset-annotation { ... }
-    method type of Str { ... }
-    method check() { ... }
-    method match-name(Str:D) { ... }
+    has $.long              = "";
+    has $.short             = "";
+    has &.callback          = Callable;
+    has Bool $.optional     = True;
+    has Str $.annotation    = "";
+    has $.value             = Any;
+    has $.default-value     = Any;
+    has $.supply            = Any;
+    has $.owner             = Any;
+
+    method value {
+        $!value;
+    }
+
+    method long( --> Str) {
+        $!long;
+    }
+
+    method short( --> Str) {
+        $!short;
+    }
+
+    method callback {
+        &!callback;
+    }
+
+    method optional( --> Bool) {
+        $!optional;
+    }
+
+    method annotation( --> Str) {
+        $!annotation;
+    }
+
+    method default-value {
+        $!default-value;
+    }
+
+    method set-value(Mu $value, Bool :$callback) {
+        if $callback.so && self.has-callback() {
+            &!callback(self, $value);
+        }
+        $!value = $value;
+    }
+
+    method set-long(Str:D $!long) { }
+
+    method set-short(Str:D $!short) { }
+
+    method set-callback( &callback where .signature ~~ :($, $) | :($) ) {
+        &!callback = &callback;
+    }
+
+    method set-optional(Bool $!optional) { }
+
+    method set-annotation(Str:D $!annotation) { }
+
+    method set-default-value($!default-value) { }
+
+    method has-value( --> Bool) {
+        $!value.defined;
+    }
+
+    method has-long( --> Bool) {
+        self.long() ne "";
+    }
+
+    method has-short( --> Bool) {
+        self.short() ne "";
+    }
+
+    method has-callback( --> Bool) {
+        &!callback.defined;
+    }
+
+    method has-annotation( --> Bool) {
+        $!annotation ne "";
+    }
+
+    method has-default-value( --> Bool) {
+        $!default-value.defined;
+    }
+
+    method reset-long {
+        self.set-long("");
+    }
+
+    method reset-short {
+        self.set-short("");
+    }
+
+    method reset-value {
+        self.set-value(Any);
+    }
+
+    method reset-callback {
+        &!callback = Callable;
+    }
+
+    method reset-annotation {
+        self.set-annotation("");
+    }
+
+    method type( --> Str) { ... }
+
+    method check() {
+        return self.optional() || self.has-value();
+    }
+
+    method match-name(Str:D $name) {
+        $name eq self.long || $name eq self.short;
+    }
+
     method match-value(Mu) { ... }
-    method lprefix { ... }
-    method sprefix { ... }
-    method need-argument of Bool { True; }
-    method usage() of Str {
+
+    method lprefix { '--' }
+
+    method sprefix { '-' }
+
+    method need-argument( --> Bool) { True; }
+
+    method usage( --> Str) {
         my Str $usage = "";
 
         $usage ~= "{self.sprefix}{self.short}"
@@ -62,147 +149,8 @@ role Option {
 
         return $usage;
     }
-    method clone(*%_) { ... }
-}
 
-role Option::Base does Option {
-    has $.long  = "";
-    has $.short = "";
-    has &.callback;
-    has $.optional = True;
-    has $.annotation = "";
-    has $.value;
-    has $.default-value;
-    has $.supply;
-
-    method callback {
-        &!callback;
-    }
-
-    method optional {
-        $!optional;
-    }
-
-    method annotation {
-        $!annotation;
-    }
-
-    method value {
-        $!value;
-    }
-
-    method default-value {
-        $!default-value;
-    }
-
-    method long {
-        $!long;
-    }
-
-    method short {
-        $!short;
-    }
-
-    method set-value(Mu $value, Bool :$callback) {
-        if $callback.so && &!callback.defined {
-            &!callback(self, $value);
-        }
-        $!value = $value;
-    }
-
-    method set-long(Str:D $name) {
-        $!long = $name;
-    }
-
-    method set-short(Str:D $name) {
-        $!short = $name;
-    }
-
-    method set-callback(
-        &callback where .signature ~~ :($, $) | :($)
-    ) {
-        &!callback = &callback;
-    }
-
-    method set-optional(Mu $optional) {
-        $!optional = $optional.so;
-    }
-
-    method set-annotation(Str:D $annotation) {
-        $!annotation = $annotation;
-    }
-
-    method set-default-value(Mu $value) {
-        $!default-value = $value;
-    }
-
-    method has-value() of Bool {
-        $!value.defined;
-    }
-
-    method has-long() of Bool {
-        $!long ne "";
-    }
-
-    method has-short() of Bool {
-        $!short ne "";
-    }
-
-    method has-callback() of Bool {
-        &!callback.defined;
-    }
-
-    method has-annotation() of Bool {
-        $!annotation.defined;
-    }
-
-    method has-default-value() of Bool {
-        $!default-value.defined;
-    }
-
-    method reset-long {
-        $!long = "";
-    }
-
-    method reset-short {
-        $!short = "";
-    }
-
-    method reset-value {
-        $!value = $!default-value;
-    }
-
-    method reset-callback {
-        &!callback = Callable;
-    }
-
-    method reset-annotation {
-        $!annotation = Mu;
-    }
-
-    method type() {
-        die "{$?CLASS} has no type!";
-    }
-
-    method check() {
-        return $!optional || self.has-value();
-    }
-
-    method match-name(Str:D $name) {
-        $name eq self.long
-            ||
-        $name eq self.short;
-    }
-
-    method match-value(Mu) {
-        False;
-    }
-
-    method lprefix { '--' }
-
-    method sprefix { '-' }
-
-    method clone(*%_) {
+    method clone() {
         nextwith(
             long        => %_<long> // $!long.clone,
             short       => %_<short> // $!short.clone,
@@ -210,58 +158,285 @@ role Option::Base does Option {
             optional    => %_<optional> // $!optional.clone,
             annotation  => %_<annotation> // $!annotation.clone,
             value       => %_<value> // $!value.clone,
+            owner       => %_<owner>,
             default-value=> %_<default-value> // $!default-value.clone,
-            supply      => %_<supply> // $!supply.clone,
             |%_
         );
     }
 }
 
-class Option::Boolean does Option::Base {
+multi sub tapTheParser(Mu:U \parser, Option $option) { }
+
+multi sub tapTheParser(Supply:D \parser, Option $option) {
+    parser.tap(
+        #| should use anon sub, point block are transparent to "return"
+        sub ($v) {
+            if $v.style >= Style::XOPT && $v.style <= Style::BSD {
+                $v.process($option);
+            }
+        },
+        #| should have a quit named argument, or will not throw exception to outter
+        quit => QUITBLOCK,
+    );
+}
+
+class Option::Boolean does Option {
+    has $!deactivate;
+
     submethod TWEAK(:$value, :$deactivate) {
+        $!deactivate = $deactivate;
         if $deactivate {
             if $value.defined && !$value {
                 ga-invalid-value("{self.usage()}: default value must be True in deactivate-style.");
             }
-            $!default-value = True;
+            self.set-default-value(True);
             self.set-value(True, :!callback);
         } else {
             if $value.defined {
-                $!default-value = $value;
+                self.set-default-value($value);
                 self.set-value($value, :!callback);
             }
         }
-        $!supply.tap(
-            -> $v {
-                given $v {
-                    if ! .success {
-                        if .match-name(self) {
-                            .mark-matched;
-                            self.set-value(True, :callback);
-                        }
-                    }
-                }
-            }
-        );
-    }
-
-    method value {
-        so $!value;
+        &tapTheParser($!supply, self);
     }
 
     method set-value(Mu $value, Bool :$callback) {
-        self.Option::Base::set-value($value.so, :$callback);
+        self.Option::set-value($value.so, :$callback);
     }
 
     method type() {
-        "boolean";
+        BOOLEAN;
     }
 
-    method lprefix { $!default-value ?? '--/' !! '--' }
+    method lprefix(--> Str) { $!deactivate ?? '--/' !! '--' }
 
-    method need-argument of Bool { False; }
+    method sprefix(--> Str) { $!deactivate ?? '-/' !! '-' }
 
-    method match-value(Mu:D) {
+    method need-argument(--> Bool) { False; }
+
+    method match-value(Mu:D $value) {
+        if $!deactivate && $value {
+            Debug::warn("Only support deactivate style {self.usage()}");
+        }
+        return ! ( $!deactivate && $value.so );
+    }
+
+    method clone() {
+        nextwith(
+            deactivate => %_<deactivate> // $!deactivate,
+            |%_,
+        );
+    }
+}
+
+class Option::Integer does Option {
+    submethod TWEAK(:$value) {
+        if $value.defined {
+            self.set-default-value($value);
+            self.set-value($value, :!callback);
+        }
+        &tapTheParser($!supply, self);
+    }
+
+    method set-value(Mu:D $value, Bool :$callback) {
+        if $value ~~ Int {
+            self.Option::set-value($value, :$callback);
+        } elsif so +$value {
+            self.Option::set-value(+$value, :$callback);
+        } else {
+            ga-invalid-value("{self.usage()}: Need an integer.");
+        }
+    }
+
+    method type() {
+        INTEGER;
+    }
+
+    method match-value(Mu:D $value) {
+        $value ~~ Int || so +$value;
+    }
+}
+
+class Option::Float does Option {
+    submethod TWEAK(:$value) {
+        if $value.defined {
+            self.set-default-value($value);
+            self.set-value($value, :!callback);
+        }
+        &tapTheParser($!supply, self);
+    }
+
+    method set-value(Mu:D $value, Bool :$callback) {
+        if $value ~~ FatRat {
+            self.Option::set-value($value, :$callback);
+        } elsif so $value.FatRat {
+            self.Option::set-value($value.FatRat, :$callback);
+        } else {
+            ga-invalid-value("{self.usage()}: Need float.");
+        }
+    }
+
+    method type() {
+        FLOAT;
+    }
+
+    method match-value(Mu:D $value) {
+        $value ~~ FatRat || so $value.FatRat;
+    }
+}
+
+class Option::String does Option {
+    submethod TWEAK(:$value) {
+        if $value.defined {
+            self.set-default-value($value);
+            self.set-value($value, :!callback);
+        }
+        &tapTheParser($!supply, self);
+    }
+
+    method set-value(Mu:D $value, Bool :$callback) {
+        if $value ~~ Str {
+            self.Option::set-value($value, :$callback);
+        } elsif so ~$value {
+            self.Option::set-value(~$value, :$callback);
+        } else {
+            ga-invalid-value("{self.usage()}: Need string.");
+        }
+    }
+
+    method type() {
+        STRING;
+    }
+
+    method match-value(Mu:D $value) {
+        $value ~~ Str || so ~$value;
+    }
+}
+
+class Option::Array does Option {
+    submethod TWEAK(:$value) {
+        if $value.defined {
+            unless $value ~~ Positional {
+                ga-invalid-value("{self.usage()}: Need an Positional.");
+            }
+            $!value = $!default-value = Array.new(|$value);
+        }
+        &tapTheParser($!supply, self);
+    }
+
+    method value {
+        $!value ?? @$!value !! Array;
+    }
+
+    # This actually is a push-value
+    method set-value($value, Bool :$callback) {
+        my @array = $!value ?? @$!value !! Array.new;
+        @array.push($value);
+        self.Option::set-value(@array, :$callback);
+    }
+
+    method type() {
+        ARRAY;
+    }
+
+    method match-value(Mu:D $value) {
         True;
+    }
+}
+
+class Option::Hash does Option {
+    submethod TWEAK(:$value) {
+        if $value.defined {
+            unless $value ~~ Hash {
+                ga-invalid-value("{self.usage()}: Need a Hash.");
+            }
+            $!value = $!default-value = $value;
+        }
+        &tapTheParser($!supply, self);
+    }
+
+    method value {
+        $!value ?? %$!value !! Hash;
+    }
+
+    # This actually is a push-value
+    method set-value(Mu:D $value, Bool :$callback) {
+        my %hash = self.has-value() ?? %$!value !! Hash.new;
+        if $value ~~ Pair {
+            %hash.push($value);
+        } elsif try so $value.pairup {
+            %hash.push($value.pairup);
+        } elsif (my $evalue = self!parse-as-pair($value)) {
+            %hash.push($evalue);
+        } else {
+            ga-invalid-value("{self.usage()}: Need a Pair.");
+        }
+        self.Option::set-value(%hash, :$callback);
+    }
+
+    my grammar Pair::Grammar {
+        token TOP { ^ <pair> $ }
+
+        proto rule pair {*}
+
+        rule pair:sym<arrow> { <key> '=>' <value> }
+
+        rule pair:sym<colon> { ':' <key> '(' $<value> = (.+ <!before $>) ')' }
+
+    	rule pair:sym<angle> { ':' <key> '<' $<value> = (.+ <!before $>) '>' }
+
+        rule pair:sym<true> { ':' <key> }
+
+        rule pair:sym<false> { ':' '!' <key> }
+
+        token value { .+ }
+
+        token key { <[0..9A..Za..z\-_\'\"]>+ }
+    }
+
+    my class Pair::Actions {
+        method TOP($/) { $/.make: $<pair>.made; }
+
+        method pair:sym<arrow>($/) {
+            $/.make: $<key>.made => $<value>.Str;
+        }
+
+        method pair:sym<colon>($/) {
+            $/.make: $<key>.made => $<value>.Str;
+        }
+
+        method pair:sym<true>($/) {
+            $/.make: $<key>.made => True;
+        }
+
+        method pair:sym<false>($/) {
+            $/.make: $<key>.made => False;
+        }
+
+        method pair:sym<angle>($/) {
+            $/.make: $<key>.made => $<value>.Str;
+        }
+
+        method value($/) {
+            $/.make: ~$/;
+        }
+
+        method key($/) {
+            $/.make: ~$/;
+        }
+    }
+
+    method !parse-as-pair($value) {
+        my $r = Pair::Grammar.parse($value, :actions(Pair::Actions));
+
+        return $r.made if $r;
+    }
+
+    method type() {
+        HASH;
+    }
+
+    method match-value(Mu:D $value) {
+        $value ~~ Pair || (try so $value.pairup) || Pair::Grammar.parse($value).so;
     }
 }

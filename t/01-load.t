@@ -1,6 +1,6 @@
 
 use Test;
-use Getopt::Advance;
+use Getopt::Advance:api<2>;
 
 plan 1;
 

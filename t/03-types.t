@@ -1,10 +1,9 @@
 
 use Test;
-use Getopt::Advance;
-use Getopt::Advance::Types;
-use Getopt::Advance::Option;
+use Getopt::Advance::Types:api<2>;
+use Getopt::Advance::Option:api<2>;
 
-my $types = Types::Manager.new;
+my $types = TypesManager.new;
 
 $types.register('b', Option::Boolean)
       .register('i', Option::Integer)

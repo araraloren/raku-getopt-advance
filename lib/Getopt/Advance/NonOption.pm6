@@ -1,20 +1,35 @@
 
-use Getopt::Advance::Argument;
-use Getopt::Advance::Exception;
+use Getopt::Advance::Exception:api<2>;
+use Getopt::Advance::Utils:api<2>;
 
-constant NOALL  = "all";
-constant NOCMD  = "cmd";
-constant NOPOS  = "position";
+unit module Getopt::Advance::NonOption:api<2>;
 
 role NonOption {
     has $.success;
-    has &.callback;
+    has &!callback;
+    has $.name;
+    has $.supply;
+    has $.owner;
 
-    method set-callback(&callback) { ... }
-    method has-callback of Bool { &!callback.defined; }
-    method match-index(Int $total, Int $index) { ... }
-    method match-name(Str $name) { ... }
+    #| provide an empty sub
+    method index( --> Int) { }
+
+    method value( --> Any) { }
+
+    method set-value($) { }
+
+    method set-callback(&!callback) { ... }
+
+    method has-callback( --> Bool) { &!callback.defined; }
+
     method reset-success { $!success = False; }
+
+    method matchIndex(Int $total, Int $index --> Bool) { ... }
+
+    method matchName(Str $name --> Bool) { ... }
+
+    method matchStyle($style --> Bool) { ... }
+
     method CALL-ME(|c) {
         my $ret;
         given &!callback.signature {
@@ -31,51 +46,64 @@ role NonOption {
         $!success = True;
         return $ret;
     }
-    method type of Str { ... }
-    method clone(*%_) { ... }
-    method usage { ... }
+
+    method type( --> Str) { ... }
+
+    method usage( --> Str) { ... }
 }
 
-class NonOption::All does NonOption {
+constant QUITBLOCK = sub (\ex) { };
+
+multi sub tapTheParser(Mu:U \parser, NonOption $no) { }
+
+multi sub tapTheParser(Supply:D \parser, NonOption $no) {
+    parser.tap(
+        #| should use anon sub, point block are transparent to "return"
+        sub ($v) {
+            if $v.style >= Style::MAIN && $v.style <= Style::POS {
+                $v.process($no);
+            }
+        },
+        #| should have a quit named argument, or will not throw exception to outter
+        quit => QUITBLOCK,
+    );
+}
+
+class NonOption::Main does NonOption {
     submethod TWEAK(:&callback) {
         self.set-callback(&callback);
+        &tapTheParser($!supply, self);
     }
 
     method set-callback(
         &callback where .signature ~~ :($, @) | :(@) | :()
     ) {
-        &!callback = &callback;
+        self.NonOption::set-callback(&callback);
     }
 
-    method match-index(Int $total, Int $index) {
-        True;
-    }
+    method matchIndex(Int $total, Int $index --> True) { }
 
-    method match-name(Str $name) {
-        True;
-    }
+    method matchName(Str $name --> True) {}
 
-    method type of Str {
-        NOALL;
-    }
+    method matchStyle($style --> Bool) { $style == Style::MAIN; }
+
+    method type(--> "main") { }
 
     method clone(*%_) {
         nextwith(
-            callback    => %_<callback> // &!callback.clone,
+            callback => %_<callback> // &!callback.clone,
+            success  => %_<success> // $!success.clone,
             |%_
         );
     }
 
-    method usage() {
-        "main";
-    }
+    method usage() { '*@args' }
 }
 
 class NonOption::Cmd does NonOption {
-    has $.name;
-
     submethod TWEAK(:&callback) {
         self.set-callback(&callback);
+        &tapTheParser($!supply, self);
     }
 
     method set-callback(
@@ -84,13 +112,15 @@ class NonOption::Cmd does NonOption {
         &!callback = &callback;
     }
 
-    method match-index(Int $total, Int $index) {
+    method matchIndex(Int $total, Int $index --> Bool) {
         $index == 0;
     }
 
-    method match-name(Str $name) {
-        $!name eq $name;
+    method matchName(Str $name --> Bool) {
+        self.name() eq $name;
     }
+
+    method matchStyle($style --> Bool) { $style == Style::CMD; }
 
     method CALL-ME(|c) {
         given &!callback.signature {
@@ -107,25 +137,21 @@ class NonOption::Cmd does NonOption {
         $!success = True;
     }
 
-    method type of Str {
-        NOCMD;
-    }
+    method type( --> "cmd") { }
 
     method clone(*%_) {
         nextwith(
-            callback    => %_<callback> // &!callback.clone,
-            name        => %_<name> // $!name.clone,
+            callback => %_<callback> // &!callback.clone,
+            name     => %_<name> // $!name.clone,
+            success  => %_<success> // $!success.clone,
             |%_
         );
     }
 
-    method usage() {
-        $!name;
-    }
+    method usage() { self.name(); }
 }
 
 class NonOption::Pos does NonOption {
-    has $.name;
     has $.value;
     has $.index;
 
@@ -134,19 +160,16 @@ class NonOption::Pos does NonOption {
         if $index ~~ Int && $index < 0 {
             &ga-raise-error("Index should be positive number!");
         }
-    }
-
-    method set-index(Int:D $index) {
-        $!index = $index;
+        &tapTheParser($!supply, self);
     }
 
     method set-callback(
-        &callback # where .signature ~~ :($, Argument $) | :(Argument $)
+        &callback where .signature ~~ :($, $) | :($) | :()
     ) {
         &!callback = &callback;
     }
 
-    method match-index(Int $total, $index) {
+    method matchIndex(Int $total, $index) {
         my $expect-index = $!index ~~ WhateverCode ??
             $!index.($total) !! $!index;
         my $readl-index = $index ~~ WhateverCode ??
@@ -154,9 +177,11 @@ class NonOption::Pos does NonOption {
         return $readl-index == $expect-index;
     }
 
-    method match-name(Str $name) {
-        $!name eq $name;
+    method matchName(Str $name) {
+        self.name() eq $name;
     }
+
+    method matchStyle($style --> Bool) { $style == Style::POS; }
 
     method CALL-ME(|c) {
         given &!callback.signature {
@@ -173,42 +198,22 @@ class NonOption::Pos does NonOption {
         $!success = True;
     }
 
-    method type of Str {
-        NOPOS;
-    }
+    method type( --> "pos") { }
 
     method clone(*%_) {
         nextwith(
-            callback    => %_<callback> // &!callback.clone,
-            name        => %_<name> // $!name.clone,
-            index       => %_<index> // $!index.clone,
+            callback => %_<callback> // &!callback.clone,
+            name     => %_<name> // $!name.clone,
+            index    => %_<index> // $!index.clone,
+            value    => %_<value> // $!index.clone,
+            success  => %_<success> // $!success.clone,
             |%_
         );
     }
 
-    method usage() {
-        "{$!name}";
-    }
+    method usage() { self.name(); }
 
-    method new-front(*%_) {
-        %_<index>:delete;
-        self.new(
-            |%_,
-            index => 0
-        );
-    }
-
-    method new-last(*%_) {
-        %_<index>:delete;
-        self.new(
-            |%_,
-            index => * - 1
-        );
-    }
-
-    method set-value($value) {
-        $!value = $value;
-    }
+    method set-value($value) { $!value = $value; }
 
     method value {
         $!value;
