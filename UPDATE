@@ -1,6 +1,10 @@
 
 = UPDATE LOG
 
+* 2018-08-25
+
+    Add a method `merge` to `OptionSet`
+
 * 2018-07-06
 
     Replace the method new-from-optstring with from-optstring.

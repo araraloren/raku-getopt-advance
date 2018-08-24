@@ -30,7 +30,7 @@ multi sub getopt(
     *%args ) is export {
     samewith(
         @*ARGS ?? @*ARGS.clone !! $[],
-        OptionSet.new-from-optstring($optstring),
+        OptionSet.new.from-optstring($optstring),
         |%args
     );
 }
@@ -41,7 +41,7 @@ multi sub getopt(
     *%args ) is export {
     samewith(
         @args,
-        OptionSet.new-from-optstring($optstring),
+        OptionSet.new.from-optstring($optstring),
         |%args
     );
 }
@@ -543,6 +543,23 @@ class OptionSet {
 			}
 			&array-to-table(@annotation, style => 'none');
 		}
+    }
+
+    method merge(::?CLASS::D: ::?CLASS:D $os) {
+        sub merge-no(\old, %new) {
+            for %new -> $no {
+                old{$!counter++} = $no.value;
+            }
+        }
+        given $os {
+            @!main.append($os.main);
+            @!radio.append($os.radio);
+            @!multi.append($os.radio);
+            merge-no(%!no-all, $os.no-all);
+            merge-no(%!no-pos, $os.no-pos);
+            merge-no(%!no-cmd, $os.no-cmd);
+        }
+        self;
     }
 
     method clone(*%_) {
