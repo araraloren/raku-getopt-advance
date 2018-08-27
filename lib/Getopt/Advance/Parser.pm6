@@ -35,6 +35,7 @@ grammar Option::Grammar {
 	}
 }
 
+role Parser { ... }
 role ResultHandler { ... }
 
 class Option::Actions {
@@ -43,7 +44,7 @@ class Option::Actions {
 	has $.prefix;
     has $.handler;
 
-    method setHandler(ResultHandler $handler) {
+    method set-handler(ResultHandler $handler) {
         $!handler = $handler;
     }
 
@@ -96,7 +97,7 @@ class Option::Actions {
     }
 
     # generate option like '--foo', aka long style
-    multi method broadcastOption(&getarg, :$long!) {
+    multi method broadcast-option(&getarg, :$long!) {
         # skip option like '-f'
         if $!prefix == Prefix::LONG  {
             for self!guess-option(&getarg) -> $g {
@@ -117,7 +118,7 @@ class Option::Actions {
     }
 
     # generate option like '-foo', but not '-f', aka x-style
-    multi method broadcastOption(&getarg, :$xopt!) {
+    multi method broadcast-option(&getarg, :$xopt!) {
         # skip option like '-f'
         if $!prefix == Prefix::SHORT && $!name.chars > 1  {
             for self!guess-option(&getarg) -> $g {
@@ -138,7 +139,7 @@ class Option::Actions {
     }
 
     # generate option like '-a', aka short style
-    multi method broadcastOption(&getarg, :$short!) {
+    multi method broadcast-option(&getarg, :$short!) {
         if $!prefix == Prefix::SHORT && $!name.chars == 1 {
             for self!guess-option(&getarg) -> $g {
                 emit MatchContext.new(
@@ -158,7 +159,7 @@ class Option::Actions {
     }
 
     # generate option like '[-|--]ab' ==> '[-|--]a b, that mean b is argument of option a
-    multi method broadcastOption(&getarg, :$ziparg!) {
+    multi method broadcast-option(&getarg, :$ziparg!) {
         if $!name.chars > 1 && !$!value.defined {
             emit MatchContext.new(
                 handler => $!handler,
@@ -176,7 +177,7 @@ class Option::Actions {
     }
 
     # generate option like '[-|--][/]ab' ==> '[-|--][/]a [-|--][/]b, that mean multi option
-    multi method broadcastOption(&getarg, :$comb!) {
+    multi method broadcast-option(&getarg, :$comb!) {
         if $!name.chars > 1 {
             my @opts = $!name.comb;
             my @contexts;
@@ -213,145 +214,186 @@ class Option::Actions {
     }
 }
 
-sub broadcastOption(Option::Actions:D $actions, &getarg, %styles) {
-    if %styles<long> {
-        $actions.broadcastOption(&getarg, :long);
-    }
-    if %styles<xopt> {
-        $actions.broadcastOption(&getarg, :xopt);
-    }
-    if %styles<short> {
-        $actions.broadcastOption(&getarg, :short);
-    }
-    if %styles<ziparg> {
-        $actions.broadcastOption(&getarg, :ziparg);
-    }
-    if %styles<comb> {
-        $actions.broadcastOption(&getarg, :comb);
-    }
-    $actions.handler.handle($actions);
-}
-
-sub broadcastNonOption($a, ResultHandler $handler) {
-    if $a.index == 0 {
-        emit MatchContext.new(
-            handler  => $handler,
-            style    => Style::CMD,
-            contexts => [
-                MatchContext::NonOption.new( argument => $a ),
-            ]
-        );
-    }
-    emit MatchContext.new(
-        handler  => $handler,
-        style    => Style::POS,
-        contexts => [
-            MatchContext::NonOption.new( argument => $a ),
-        ]
-    );
-    $handler.handle($a);
-}
-
-role ResultHandler {
+role ResultHandler is export {
     has $.success = False;
+    has $.skiparg = False;
 
-    method setSuccess() {
+    #| set we match success
+    method set-success() {
         $!success = True;
+        self;
     }
 
+    #| reset the status, so we can use the handler next time
     method reset() {
-        $!success = False;
+        $!success = $!skiparg = False;
+        self;
     }
 
-    method handle($data) { }
+    #| will called after the MatchContext process the thing
+    method handle($parser) { self; }
 
-    method shiftArgs() {}
+    #| when option want skip the argument, call this method, default do nothing
+    method skip-next-arg() {  self; }
 }
 
-sub ga-parser(@args, :$strict, :$bsd-style, :$autohv , *%styles --> Supply) is export {
-    supply {
-        my ($count, $noaIndex) = (+@args, 0);
-        my @noa;
-        my $nrh = ResultHandler.new;
+role Parser is export {
+    has @.args;
+    has Bool $.strict;
+    has Bool $.autohv;
+    has Bool $.bsd-style;
+    has @.styles;
+    has Int  $.index;
+    has Int  $.count;
+    has Int  $!noaIndex;
+    has $.actions;
+    has $.arg;
+    has &.is-next-arg-available;
+    has ResultHandler $.nrh; #| for NonOption
+    has ResultHandler $.brh; #| for BSD Option
+    has ResultHandler $.orh; #| for Option
+    has @.noa;
 
-        loop (my $index = 0; $index < $count; $index += 1) {
-            sub isNextAnArgument( --> False ) {
-                if ($index + 1 < $count) {
-                    given @args[$index + 1] {
-                        unless $strict && (
-                            .starts-with('-')  || .starts-with('--') || .starts-with('-/') || .starts-with('--/')
-                        ) {
-                            return True;
+    submethod TWEAK(:@order) {
+        self.init(:@order);
+    }
+
+    method init(:@order) {
+        $!noaIndex = $!index = 0;
+        $!count = +@!args;
+        unless &!is-next-arg-available.defined {
+            &!is-next-arg-available = sub ( Parser $parser --> False ) {
+                given $parser {
+                    if (.index + 1 < .count) {
+                        given .args[.index + 1] {
+                            unless $parser.strict && (
+                                .starts-with('-')  || .starts-with('--') || .starts-with('-/') || .starts-with('--/')
+                            ) {
+                                return True;
+                            }
                         }
                     }
                 }
             }
-
-            # getarg not add the index, so that we can verify the argument
-            sub getarg() {
-                return @args[$index + 1];
-            }
-
-            my class OptionResultHanlder does ResultHandler {
-                method handle($data) {
-                    Debug::debug("Call handler for option [{@args[$index]}]");
+        }
+        unless $!orh.defined {
+            $!orh = class :: does ResultHandler {
+                method handle($parser) {
+                    Debug::debug("Call handler for option [{$parser.arg}]");
                     unless self.success {
-                        &ga-try-next("Can not find the option: {@args[$index]}");
+                        &ga-try-next("Can not find the option: {$parser.arg}");
+                    }
+                    #| skip next argument if the option has consume an argument
+                    Debug::debug("Skip the next arguments");
+                    $parser.skip() if self.skiparg();
+                    self;
+                }
+            }.new;
+        }
+        unless $!nrh.defined {
+            $!nrh = ResultHandler.new;
+        }
+        if $!bsd-style {
+            unless $!brh.defined {
+                $!brh = ResultHandler.new;
+            }
+        }
+        my (%order, @sorted);
+        %order{ @order } = 0 ...^ +@order;
+        Debug::debug("Sort the styles with >> {@order.join(" - ")}");
+        for @!styles -> $style {
+            @sorted[%order{$style.key.Str}] = $style;
+        }
+        @!styles = @sorted;
+    }
+
+    #| skip current argument
+    method skip() {
+        $!index += 1;
+    }
+
+    method CALL-ME( --> Supply) {
+        supply {
+            Debug::debug("Got arguments '{@!args.join(" ")}' from input");
+            while $!index < $!count {
+                ($!arg, $!actions) = ( @!args[$!index], Option::Actions.new );
+
+                sub getCurrentArg() { $!arg; }
+
+                Debug::debug("Process the argument '{$!arg}'\@{$!index}");
+
+                if Option::Grammar.parse($!arg, actions => $!actions) {
+                    #| the action need handler pass it to MatchContext
+                    $!actions.set-handler($!orh.reset());
+                    for @!styles -> $style {
+                        if $style.defined {
+                            Debug::debug("** Start broadcast {$style.key.Str} style option");
+                            $!actions.broadcast-option(&!is-next-arg-available(self) ?? &getCurrentArg !! Callable, |$style);
+                            Debug::debug("** End broadcast {$style.key.Str} style option");
+                        }
+                    }
+                    $!orh.handle(self);
+                } else {
+                    my $bsdmc;
+
+                    #| if we need suppot bsd style
+                    if $!bsd-style {
+                        #| reset the bsd style handler
+                        $bsdmc = MatchContext.new( handler => $!brh.reset(), style => Style::BSD, contexts => [
+                                MatchContext::Option.new(
+                                    prefix  => Prefix::NULL,
+                                    name    => $_,
+                                    hasarg  => False,
+                                    getarg  => ParserRT,
+                                ) for $!arg.comb();
+                            ]
+                        );
+                        Debug::debug("** Broadcast a bsd style option [{$!arg.comb.join("|")}]");
+                        emit $bsdmc;
+                        $!brh.handle(self);
+                        Debug::debug("** End bsd style");
+                    }
+
+                    #| if not bsd style or it matched failed
+                    if !$!bsd-style || !$bsdmc.matched {
+                        my $a = Argument.new( index => $!noaIndex++, value => $!arg, );
+
+                        #| push the arg to @!noa
+                        @!noa.push($a);
+
+                        Debug::debug("** Begin NonOption");
+
+                        #| maybe a CMD, and POS[0] maybe exists, so we need reset and call the handler
+                        if $a.index == 0 {
+                            emit MatchContext.new( handler => $!nrh.reset(), style => Style::CMD, contexts => [
+                                    MatchContext::NonOption.new( argument => $a ),
+                                ]
+                            );
+                            $!nrh.handle(self);
+                        }
+
+                        #| maybe a POS
+                        emit MatchContext.new( handler => $!nrh.reset(), style => Style::POS, contexts => [
+                                MatchContext::NonOption.new( argument => $a ),
+                            ]
+                        );
+                        $!nrh.handle(self);
+
+                        Debug::debug("** End NonOption");
                     }
                 }
 
-                #| when option want skip the argument, call this method
-                method shiftArgs() {
-                    $index += 1;
-                }
+                #| increment the index
+                self.skip();
             }
 
-            my class NonOptionResultHandler does ResultHandler {
-
-            }
-
-            state $prh = OptionResultHanlder.new;
-            state $nrh = NonOptionResultHandler.new;
-
-            my ($arg, $actions) := ( @args[$index], Option::Actions.new );
-
-            .reset() for $nrh, $prh;
-            if Option::Grammar.parse($arg, :$actions) {
-                $actions.setHandler($prh);
-                broadcastOption($actions, &isNextAnArgument() ?? &getarg !! Callable, %styles);
-            } else {
-                my $bsd;
-                if $bsd-style {
-                    $bsd = MatchContext.new(
-                        handler => $nrh,
-                        style => Style::BSD,
-                        contexts => [
-                            MatchContext::Option.new(
-                                prefix  => Prefix::NULL,
-                                name    => $_,
-                                hasarg  => False,
-                                getarg  => ParserRT,
-                            ) for $arg.comb();
-                        ]
-                    );
-                    emit $bsd;
-                    Debug::debug("Bsd match result of [{$arg}]: {$bsd.matched}");
-                }
-
-                if !$bsd-style || !$bsd.matched {
-                    my $a = Argument.new( index => $noaIndex, value => $arg, );
-                    @noa.push($a);
-                    Debug::debug("Emit NOA [{$arg}\@{$noaIndex}]");
-                    broadcastNonOption($a, $nrh);
-                }
-            }
+            Debug::debug("** Broadcast the MAIN NonOption");
+            #| last, we should emit the MAIN
+            emit MatchContext.new( handler => $!nrh.reset(), style => Style::MAIN, contexts => [
+                    MatchContext::Main.new( argument => @!noa ),
+                ]
+            );
+            $!nrh.handle(self);
         }
-        emit MatchContext.new(
-            handler  => $nrh,
-            style    => Style::MAIN,
-            contexts => [
-                MatchContext::Main.new( argument => @noa ),
-            ]
-        );
     }
 }

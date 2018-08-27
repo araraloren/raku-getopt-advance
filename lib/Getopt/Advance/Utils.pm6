@@ -1,6 +1,8 @@
 
 unit module Getopt::Advance::Utils:api<2>;
 
+constant MAXPOSSUPPORT is export = 10240;
+
 class Prefix is export {
     enum < LONG SHORT NULL DEFAULT >;
 }
@@ -12,14 +14,14 @@ class Style is export {
 class Debug { ... }
 class MatchContext { ... }
 
-role Context {
+role Context is export {
     has $.success;
 
     method TWEAK() {
         $!success = False;
     }
 
-    method markMatched() {
+    method mark-matched() {
         $!success = True;
     }
 
@@ -62,7 +64,7 @@ class MatchContext is export {
         }
 
         method set(MatchContext $mc, $o) {
-            self.markMatched();
+            self.mark-matched();
             $o.set-value(&!getarg(), :callback);
             Debug::debug("    - OK! Set value {&!getarg()} for [{$o.usage}], shift args: {$o.need-argument}");
         }
@@ -70,27 +72,25 @@ class MatchContext is export {
         method gist() { "\{{$!prefix}, {$!name}{$!hasarg ?? ":" !! ""}\}" }
     }
 
-    my constant MAXPOSSUPPORT = 10240;
-
     class NonOption does Context {
         has $.argument;
 
         method match(MatchContext $mc, $no) {
-            my $style-r = $no.matchStyle($mc.style);
+            my $style-r = $no.match-style($mc.style);
             my $name-r = do given $mc.style {
                 when Style::MAIN {
-                    $no.matchName("");
+                    $no.match-name("");
                 }
                 default {
-                    $no.matchName($!argument.Str);
+                    $no.match-name($!argument.Str);
                 }
             };
             my $index-r = do given $mc.style {
                 when Style::MAIN {
-                    $no.matchIndex(MAXPOSSUPPORT, -1);
+                    $no.match-index(MAXPOSSUPPORT, -1);
                 }
                 default {
-                    $no.matchIndex(MAXPOSSUPPORT, $!argument.index);
+                    $no.match-index(MAXPOSSUPPORT, $!argument.index);
                 }
             };
             Debug::debug("    - Match " ~ ($style-r && $name-r && $index-r ?? "Okay!" !! "Failed!"));
@@ -148,9 +148,11 @@ class MatchContext is export {
                 }
             }
             if $matched {
-                Debug::debug("Call handler to shift argument.");
-                $!handler.shiftArgs();
-                $!handler.setSuccess();
+                if $o.?need-argument {
+                    Debug::debug("  - Call handler to shift argument.");
+                    $!handler.skip-next-arg();
+                }
+                $!handler.set-success();
             }
         }
     }
@@ -194,8 +196,8 @@ class Debug is export {
     }
 }
 
-sub shareSupply(Supply $s) is export {
-    my $p = Promise;
+sub share-supply(Supply $s) is export {
+    my $p = Promise.new;
     my $d = supply {
         whenever $p {
             whenever $s {
@@ -208,11 +210,11 @@ sub shareSupply(Supply $s) is export {
         has $.d;
 
         method Supply {
-            $d;
+            $!d;
         }
 
         method keep() {
-            $!p.keep(True);
+            $!p.keep(1);
         }
     }.new(p => $p, d => $d);
 }

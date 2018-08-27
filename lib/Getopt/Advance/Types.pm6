@@ -3,6 +3,8 @@ use Getopt::Advance::Utils:api<2>;
 
 unit module Getopt::Advance::Types:api<2>;
 
+constant WhateverType is export = '*';
+
 my grammar Grammar::Option {
 	rule TOP {
 		^ <option> $
@@ -106,7 +108,7 @@ class TypesManager is export {
         %!types{$name};
     }
 
-    method register(Str:D $name, Mu:U $type --> ::?CLASS:D) {
+    method registe(Str:D $name, Mu:U $type --> ::?CLASS:D) {
         unless $type.^lookup("type") {
             die "Implement a type method as the identification of type {$type.^name}";
         }
@@ -115,6 +117,8 @@ class TypesManager is export {
         }
         self;
     }
+
+    method set-owner($!owner) { }
 
     sub parseOptString(Str $str) {
         my $action = Actions::Option.new;
@@ -149,7 +153,7 @@ class TypesManager is export {
         %realargs<optional>     = %args<optional> // $setting.opt-optional;
         %realargs<deactivate>   = %args<deactivate> // $setting.opt-deactivate;
         %args< short long optional deactivate >:delete;
-        Debug::debug("create type {$str} with {%realargs.keys}");
+        Debug::debug("Create type {$str} with {%realargs.keys}");
         $option = self.type($setting.opt-type).new(
             |%realargs,
             |%args,

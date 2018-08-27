@@ -13,6 +13,23 @@ constant HASH     = "hash";
 
 constant QUITBLOCK = sub (\ex) { };
 
+role Option { ... }
+
+multi sub tapTheParser(Mu:U \parser, Option $option) { }
+
+multi sub tapTheParser(Supply:D \parser, Option $option) {
+    parser.tap(
+        #| should use anon sub, point block are transparent to "return"
+        sub ($v) {
+            if $v.style >= Style::XOPT && $v.style <= Style::BSD {
+                $v.process($option);
+            }
+        },
+        #| should have a quit named argument, or will not throw exception to outter
+        quit => QUITBLOCK,
+    );
+}
+
 role Option {
     has $.long              = "";
     has $.short             = "";
@@ -21,7 +38,6 @@ role Option {
     has Str $.annotation    = "";
     has $.value             = Any;
     has $.default-value     = Any;
-    has $.supply            = Any;
     has $.owner             = Any;
 
     method value {
@@ -72,6 +88,12 @@ role Option {
     method set-annotation(Str:D $!annotation) { }
 
     method set-default-value($!default-value) { }
+
+    method set-owner($!owner) { }
+
+    method set-parser(Supply:D $parser) {
+        &tapTheParser($parser, self);
+    }
 
     method has-value( --> Bool) {
         $!value.defined;
@@ -165,21 +187,6 @@ role Option {
     }
 }
 
-multi sub tapTheParser(Mu:U \parser, Option $option) { }
-
-multi sub tapTheParser(Supply:D \parser, Option $option) {
-    parser.tap(
-        #| should use anon sub, point block are transparent to "return"
-        sub ($v) {
-            if $v.style >= Style::XOPT && $v.style <= Style::BSD {
-                $v.process($option);
-            }
-        },
-        #| should have a quit named argument, or will not throw exception to outter
-        quit => QUITBLOCK,
-    );
-}
-
 class Option::Boolean does Option {
     has $!deactivate;
 
@@ -197,7 +204,6 @@ class Option::Boolean does Option {
                 self.set-value($value, :!callback);
             }
         }
-        &tapTheParser($!supply, self);
     }
 
     method set-value(Mu $value, Bool :$callback) {
@@ -235,7 +241,6 @@ class Option::Integer does Option {
             self.set-default-value($value);
             self.set-value($value, :!callback);
         }
-        &tapTheParser($!supply, self);
     }
 
     method set-value(Mu:D $value, Bool :$callback) {
@@ -263,7 +268,6 @@ class Option::Float does Option {
             self.set-default-value($value);
             self.set-value($value, :!callback);
         }
-        &tapTheParser($!supply, self);
     }
 
     method set-value(Mu:D $value, Bool :$callback) {
@@ -291,7 +295,6 @@ class Option::String does Option {
             self.set-default-value($value);
             self.set-value($value, :!callback);
         }
-        &tapTheParser($!supply, self);
     }
 
     method set-value(Mu:D $value, Bool :$callback) {
@@ -321,7 +324,6 @@ class Option::Array does Option {
             }
             $!value = $!default-value = Array.new(|$value);
         }
-        &tapTheParser($!supply, self);
     }
 
     method value {
@@ -352,7 +354,6 @@ class Option::Hash does Option {
             }
             $!value = $!default-value = $value;
         }
-        &tapTheParser($!supply, self);
     }
 
     method value {

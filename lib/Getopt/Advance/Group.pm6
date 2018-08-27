@@ -1,14 +1,18 @@
 
-use Getopt::Advance::Exception;
+use Getopt::Advance::Types:api<2>;
+use Getopt::Advance::Exception:api<2>;
 
-class Group::OptionName {
-    has $.long is rw;
-    has $.short is rw;
+unit module Getopt::Advance::Group:api<2>;
+
+class OptionInfo {
+    has $.long;
+    has $.short;
+    has $.type;
 }
 
 role Group {
-    has $.optsetref;
-    has @.names;
+    has $.owner;
+    has @.infos;
     has $.optional = True;
 
     # @options are names of options in group
@@ -16,39 +20,35 @@ role Group {
         @!names = [];
         for @options {
             @!names.push(
-                Group::OptionName.new(long => .long, short => .short)
+                Group::OptionName.new(long => .long, short => .short, type => .type)
             );
         }
     }
 
-    method usage() {
+    method usage( --> Str) {
         my $usage = "";
 
         $usage ~= $!optional ?? "+\[ " !! "+\< ";
-        $usage ~= $!optsetref.get(.long eq "" ?? .short !! .long).usage() for @!names;
+        $usage ~= $!owner.get(.long eq "" ?? .short !! .long).usage() for @!names;
         $usage ~= $!optional ?? " \]+" !! " \>+";
         $usage;
     }
 
-    method has(Str:D $name --> Bool) {
+    method has(Str:D $name, Str:D $type = WhateverType --> False) {
         for @!names {
-            return True if $name eq .long | .short;
+            if $type eq .type && ($name eq .long || $name eq .short) {
+                return True;
+            }
         }
-        False;
     }
 
-    method remove(Str:D $name where $name !~~ /^\s+$/) {
+    method remove(Str:D $name, Str:D $type = WhateverType --> False) {
         for ^+@!names -> $index {
-            my $optn := @!names[$index];
-            if $name eq $optn.long {
-                $optn.long = "";
-            }
-            if $name eq $optn.short {
-                $optn.short = "";
-            }
-            if $optn.long eq "" and $optn.short eq "" {
-                @!names.splice($index, 1);
-                return True;
+            given @!names[$index] {
+                if $type eq .type && ($name eq .long || $name eq .short) {
+                    @!names.splice($index, 1);
+                    return True;
+                }
             }
         }
     }
@@ -57,7 +57,7 @@ role Group {
 
     method clone(*%_) {
         nextwith(
-            optsetref => %_<optsetref> // $!optsetref,
+            owner => %_<owner> // $!owner,
             names => %_<names> // @!names.clone,
             optional => %_<optional> // $!optional,
             |%_

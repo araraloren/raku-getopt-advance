@@ -1,20 +1,14 @@
 
-use Getopt::Advance::Helper;
-use Getopt::Advance::Types;
-use Getopt::Advance::Parser;
-use Getopt::Advance::Group;
-use Getopt::Advance::Option;
-use Getopt::Advance::Argument;
-use Getopt::Advance::Exception;
-use Getopt::Advance::NonOption;
+use Getopt::Advance::Utils:api<2>;
+use Getopt::Advance::Types:api<2>;
+use Getopt::Advance::Parser:api<2>;
+use Getopt::Advance::Option:api<2>;
+use Getopt::Advance::NonOption:api<2>;
+
+unit module Getopt::Advance:api<2>;
 
 class OptionSet { ... }
 
-proto sub getopt(|) { * }
-
-#`(
-    :$gnu-style, :$unix-style, :$x-style, :$bsd-style,
-)
 multi sub getopt (
     *@optsets where all(@optsets) ~~ OptionSet,
     *%args) is export {
@@ -26,151 +20,73 @@ multi sub getopt (
 }
 
 multi sub getopt(
-    Str $optstring,
-    *%args ) is export {
-    samewith(
-        @*ARGS ?? @*ARGS.clone !! $[],
-        OptionSet.new-from-optstring($optstring),
-        |%args
-    );
-}
-
-multi sub getopt(
-    @args,
-    Str $optstring,
-    *%args ) is export {
-    samewith(
-        @args,
-        OptionSet.new-from-optstring($optstring),
-        |%args
-    );
-}
-
-multi sub getopt (
-    @args,
+    @args is copy,
     *@optsets where all(@optsets) ~~ OptionSet,
-    :&helper = &ga-helper,
     :$stdout = $*OUT,
     :$stderr = $*ERR,
-    :&parser = &ga-parser,
+    :$parser = Parser,
     :$strict = True,
     :$autohv = False,
     :$version,
-    :$bsd-style,
-    :$x-style, #`(giving priority to x-style) ) of Getopt::Advance::ReturnValue is export {
-    our $*ga-bsd-style = $bsd-style;
-    my ($index, $count, @noa, $optset) = (0, +@optsets, []);
-    my $ret;
-    my &auto-helper = -> |c {
-        with &helper {
-            &helper(|c, $stdout);
-        }
-    };
-
-    while $index < $count {
-        $optset := @optsets[$index];
+    :$bsd-style = False,
+    :@styles = [ :long, :xopt, :short, :ziparg, :comb ],
+    :@order  = < long xopt short ziparg comb >) is export {
+    my $parser-gen = Parser.new(:@args, :$strict, :$autohv, :$bsd-style, :@styles, :@order);
+    for @optsets -> $optset {
         try {
-            $ret = &parser(
-                @args,
-                $optset,
-                :$strict,
-                :$bsd-style,
-                :$x-style,
-                :$autohv,
-            );
-            last;
-            CATCH {
-                when X::GA::ParseFailed {
-                    $index++;
-                    if $index == $count {
-                        if +@optsets > 1 {
-                            &auto-helper(@optsets);
-                        } else {
-                            &auto-helper(@optsets[0]);
-                        }
-                        $stderr.say(.message);
-                        .throw;
+            my $parser = share-supply($parser-gen.());
+
+            given $parser {
+                $optset.set-parser(.Supply);
+
+                react {
+                    whenever $parser.Supply {
+                        Debug::debug("Got {$_.perl} in getopt");
                     }
+                    $parser.keep();
                 }
-
-                when X::GA::WantPrintHelper {
-                    &auto-helper($optset);
-                    exit (0);
-                }
-
-				when X::GA::WantPrintAllHelper {
-                    &auto-helper(@optsets);
-                    exit (0);
-                }
-
+            }
+            CATCH {
                 default {
-                    &auto-helper($optset);
-                    $stderr.say(.message);
-                    .throw;
+                    say .gist;
                 }
             }
         }
     }
-
-	if $index == $count {
-        if +@optsets > 1 {
-            &auto-helper(@optsets);
-        } else {
-            &auto-helper(@optsets[0]);
-        }
-        exit (0);
-	}
-
-    if $autohv {
-        # autohv automate deal the help and version option.
-        if $optset.has('version') && $optset<version> {
-            &ga-versioner($version, $stdout);
-        }
-        if $optset.has('help') && $optset<help> {
-            &auto-helper($optset);
-        }
-    }
-
-    return $ret;
 }
 
-class OptionSet {
-    has @.main;
+class OptionSet is export {
+    has Option @!options;
+    has @!radio;
+    has @!multi;
     has %!cache;
-    has @.radio;
-    has @.multi;
-    has %.no-all;
-    has %.no-pos;
-    has %.no-cmd;
-    has $.types;
+    has %!main;
+    has %!cmd;
+    has %!pos;
+    has $.types handles < create >;
     has $!counter;
 
-    method new-from-sub(&sub) {
-        # create OptionSet from sub
-    }
-
-    method new-from-optstring(Str $optstring is copy) {
-        $optstring ~~ s:g/(\w)<!before \:>/$0=b;/;
-        $optstring ~~ s:g/(\w)\:/$0=s;/;
-
-        OptionSet.new().append($optstring);
-    }
-
-    submethod TWEAK() {
-        if not $!types.defined {
-            $!types = Types::Manager.new;
-            $!types.register('b', Option::Boolean)
-                   .register('i', Option::Integer)
-                   .register('s', Option::String)
-                   .register('a', Option::Array)
-                   .register('h', Option::Hash)
-                   .register('f', Option::Float);
+    submethod TWEAK () {
+        $!counter = 0;
+        unless $!types.defined {
+            $!types = TypesManager.new(owner => self);
+            $!types.registe('b', Option::Boolean)
+                   .registe('i', Option::Integer)
+                   .registe('s', Option::String)
+                   .registe('a', Option::Array)
+                   .registe('h', Option::Hash)
+                   .registe('f', Option::Float)
+                   .registe('c', NonOption::Cmd)
+                   .registe('m', NonOption::Main)
+                   .registe('p', NonOption::Pos)
         }
     }
+
+    #| methods for options
 
     method keys(::?CLASS::D:) {
         my @keys = [];
-        for @!main {
+        for @!options {
             @keys.push(.long) if .has-long;
             @keys.push(.short)if .has-short;
         }
@@ -178,342 +94,372 @@ class OptionSet {
     }
 
     method values(::?CLASS::D:) {
-        @!main;
+        @!options;
     }
 
-    method get(::?CLASS::D: Str:D $name) of Option {
-        if %!cache{$name}:exists {
-            return %!cache{$name};
-        } else {
-            for @!main {
-                if .match-name($name) {
-                    %!cache{.long}  := $_ if .has-long;
-                    %!cache{.short} := $_ if .has-short;
-                    return $_;
-                }
+    method !make-cache($name, $type) {
+        for @!options {
+            if .match-name($name) && (
+                ($type eq WhateverType) || (.type eq $!types.innername($type))
+            ) {
+                %!cache{.long}{$type}  := $_ if .has-long;
+                %!cache{.short}{$type} := $_ if .has-short;
+                return $_;
             }
         }
         return Option;
     }
 
-    multi method has(::?CLASS::D: Str:D @names ) of Bool {
-        [&&] [self.has($_) for @names];
+    multi method get(::?CLASS::D: Str:D $name, Str:D $type = WhateverType --> Option) {
+        if %!cache{$name}{$type}:exists {
+            return %!cache{$name}{$type};
+        }
+        return self!make-cache($name, $type);
     }
 
-    multi method has(::?CLASS::D: Str:D $name) of Bool {
-        if %!cache{$name}:exists {
+    multi method has(::?CLASS::D: Str:D $name, Str:D $type = WhateverType --> Bool) {
+        if %!cache{$name}{$type}:exists {
             return True;
-        } else {
-            for @!main {
-                if .match-name($name) {
-                    %!cache{.long}  := $_ if .has-long;
-                    %!cache{.short} := $_ if .has-short;
-                    return True;
-                }
-            }
         }
-        return False;
+        return self!make-cache($name, $type).defined;
     }
 
-    multi method remove(::?CLASS::D: Str:D @names) of Bool {
-        [&&] [self.remove($_) for @names];
-    }
+    #| remove the option, not the option name, different from old code, now it is has correctly behavior
+    multi method remove(::?CLASS::D: Str:D $name, Str:D $type = WhateverType --> Bool) {
+        my Int $find = -1;
 
-    multi method remove(::?CLASS::D: Str:D $name) of Bool {
-        my $find = -1;
-        if %!cache{$name}:exists {
-            for ^+@!main -> $index {
-                if @!main[$index] === %!cache{$name} {
-                    $find = $index;
-                    last;
-                }
-            }
-            %!cache{$name}:delete;
-        } else {
-            for ^+@!main -> $index {
-                if @!main[$index].match-name($name) {
+        for ^+@!options -> $index {
+            given @!options[$index] {
+                if .match-name($name) && (
+                    ($type eq WhateverType) || (.type eq $!types.innername($type))
+                ) {
                     $find = $index;
                     last;
                 }
             }
         }
+
         if $find == -1 {
             return False;
-        } else {
-            my $option := @!main[$find];
-            if $option.long eq $name {
-                $option.reset-long;
-            } elsif $option.short eq $name {
-                $option.reset-short;
-            }
-            unless $option.has-long || $option.has-short {
-                @!main.splice($find, 1);
-            }
-            for (@!radio, @!multi) -> @groups {
-                for @groups -> $group {
-                    if $group.has($name) {
-                        $group.remove($name);
-                    }
-                }
-            }
-            return True;
         }
-    }
 
-    multi method reset(::?CLASS::D: Str:D @names) of ::?CLASS {
-        self.reset($_) for @names;
-        self;
-    }
-
-    multi method reset(::?CLASS::D: Str:D $name) of ::?CLASS {
-        if %!cache{$name}:exists {
-            %!cache{$name}.reset-value;
-        } else {
-            for ^+@!main -> $index {
-                if @!main[$index].match-name($name) {
-                    @!main[$index].reset-value;
-                    last;
-                }
+        if %!cache{$name}{$type}:exists {
+            %!cache{$name}{$type}:delete;
+        }
+        @!options.splice($find, 1);
+        for (@!radio, @!multi) -> @groups {
+            for @groups -> $group {
+                return True if $group.remove($name, $type);
             }
+        }
+        return True;
+    }
+
+    multi method reset(::?CLASS::D: Str:D $name, Str $type = WhateverType --> ::?CLASS) {
+        if %!cache{$name}{$type}:exists {
+            %!cache{$name}{$type}.reset-value;
+        } else {
+            .reset-value if self!make-cache($name, $type);
         }
         self;
     }
 
-    multi method EXISTS-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) of Bool {
-        return self.has(key);
+    #| this syntax can not check the type
+    multi method EXISTS-KEY(::?CLASS::D: Str:D \key --> Bool) {
+        self.has(key);
     }
 
-    multi method EXISTS-KEY(::?CLASS::D: Str:D @key) of Bool {
-        return [&&] [ self.has($_) for @key ];
-    }
-
-    # NOTICE: this return the value of option
-    multi method AT-KEY(::?CLASS::D: Str:D \key where * !~~ /^\s+$/) {
+    #| this return the value of option rather than the option itself
+    multi method AT-KEY(::?CLASS::D: Str:D \key ) {
         self.get(key) andthen return .value;
     }
 
-    multi method AT-KEY(::?CLASS::D: Str:D @key) {
-        return [for @key { self.has($_) ?? self.get($_).value !! Option }];
-    }
-
-    method set-value(::?CLASS::D: Str:D $name, $value, :$callback = True) of ::?CLASS {
+    multi method set-value(::?CLASS::D: Str:D $name, $value, :$callback = True --> ::?CLASS)  {
         with self.get($name) -> $opt {
             $opt.set-value($value, :$callback);
         }
         self;
     }
 
-    method set-annotation(::?CLASS::D: Str:D $name, Str:D $annotation) of ::?CLASS {
+    multi method set-value(::?CLASS::D: Str:D $name, Str:D $type, $value, :$callback = True --> ::?CLASS)  {
+        with self.get($name, $type) -> $opt {
+            $opt.set-value($value, :$callback);
+        }
+        self;
+    }
+
+    multi method set-annotation(::?CLASS::D: Str:D $name, Str:D $annotation --> ::?CLASS)  {
         with self.get($name) -> $opt {
             $opt.set-annotation($annotation);
         }
         self;
     }
 
-    method set-callback(::?CLASS::D: Str:D $name, &callback) of ::?CLASS {
+    multi method set-annotation(::?CLASS::D: Str:D $name, Str:D $type, Str:D $annotation --> ::?CLASS)  {
+        with self.get($name, $type) -> $opt {
+            $opt.set-annotation($annotation);
+        }
+        self;
+    }
+
+    multi method set-callback(::?CLASS::D: Str:D $name, &callback --> ::?CLASS)  {
         with self.get($name) -> $opt {
             $opt.set-callback(&callback);
         }
         self;
     }
 
-    multi method push(::?CLASS::D: Str:D $opt, :$value, :&callback) of ::?CLASS {
-        @!main.push(
-            $!types.create( $opt, :$value, :&callback)
-        );
-        self;
-    }
-
-    multi method push(::?CLASS::D: Str:D $opt, Str:D $annotation, :$value, :&callback) of ::?CLASS {
-        @!main.push(
-            $!types.create($opt, $annotation, :$value, :&callback)
-        );
-        self;
-    }
-
-    multi method append(::?CLASS::D: Str:D $opts) of ::?CLASS {
-        for $opts.split(';', :skip-empty) {
-            @!main.push($!types.create($_));
+    multi method set-callback(::?CLASS::D: Str:D $name, Str:D $type, &callback --> ::?CLASS)  {
+        with self.get($name, $type) -> $opt {
+            $opt.set-callback(&callback);
         }
         self;
     }
 
-    multi method append(::?CLASS::D: *@optpairs where all(@optpairs) ~~ Pair, :$radio where :!so, :$multi where :!so) of ::?CLASS {
-        for @optpairs {
-            @!main.push($!types.create(.key, .value));
+    #| push a Option to the OptionSet
+    multi method push(::?CLASS::D: Option:D $option --> ::?CLASS)  {
+        $option.set-owner(self);
+        @!options.push($option);
+        self;
+    }
+
+    multi method push(::?CLASS::D: Str:D $opt, :$value, :&callback --> ::?CLASS)  {
+        @!options.push(
+            self.create($opt, :$value, :&callback)
+        );
+        self;
+    }
+
+    multi method push(::?CLASS::D: Str:D $opt, Str:D $annotation, :$value, :&callback --> ::?CLASS)  {
+        @!options.push(
+            self.create($opt, :$annotation, :$value, :&callback)
+        );
+        self;
+    }
+
+    #| push a Option to the OptionSet
+    multi method append(::?CLASS::D: @options --> ::?CLASS)  {
+        self.push($_) for @options;
+        self;
+    }
+
+    multi method append(::?CLASS::D: Str:D $opts --> ::?CLASS)  {
+        self.push(self.create($_)) for $opts.split(';', :skip-empty);
+        self;
+    }
+
+    multi method append(::?CLASS::D: *@optpairs where all(@optpairs) ~~ Pair, :$radio where !.so, :$multi where !.so --> ::?CLASS)  {
+        self.push(self.create(.key, annotation => .value)) for @optpairs;
+        self;
+    }
+
+    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$radio where .so --> ::?CLASS)  {
+        my @opts = [self.create($_) for $opts.split(';', :skip-empty)];
+        die "Can not create radio group for only one option" if +@opts <= 1;
+        @!radio.push(
+            Group::Radio.new(options => @opts, :$optional, :owner(self))
+        );
+        @!options.append(@opts);
+        self;
+    }
+
+    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$multi where .so --> ::?CLASS)  {
+        my @opts = [self.create($_) for $opts.split(';', :skip-empty)];
+        die "Can not create multi group for only one option" if +@opts <= 1;
+        @!multi.push(
+            Group::Multi.new(options => @opts, :$optional, :owner(self))
+        );
+        @!options.append(@opts);
+        self;
+    }
+
+    multi method append(::?CLASS::D: :$optional = True, :$radio where .so, *@optpairs where all(@optpairs) ~~ Pair --> ::?CLASS)  {
+        my @opts = [ self.create(.key, annotation => .value) for @optpairs];
+        die "Can not create radio group for only one option" if +@opts <= 1;
+        @!radio.push(
+            Group::Radio.new(options => @opts, :$optional, :owner(self))
+        );
+        @!options.append(@opts);
+        self;
+    }
+
+    multi method append(::?CLASS::D: :$optional = True, :$multi where .so, *@optpairs where all(@optpairs) ~~ Pair --> ::?CLASS)  {
+        my @opts = [ self.create(.key, annotation => .value) for @optpairs];
+        die "Can not create multi group for only one option" if +@opts <= 1;
+        @!multi.push(
+            Group::Multi.new(options => @opts, :$optional, :owner(self))
+        );
+        @!options.append(@opts);
+        self;
+    }
+
+    method radio() { @!radio; }
+
+    method multi() { @!multi; }
+
+    #| methods for non-options
+
+    multi method get(::?CLASS::D: Int:D $id --> NonOption) {
+        for %!main, %!pos, %!cmd -> $nos {
+            if $nos{$id}:exists {
+                return $nos{$id};
+            }
         }
-        self;
+        NonOption;
     }
 
-    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$radio!) of ::?CLASS {
-        my @opts = [$!types.create($_) for $opts.split(';', :skip-empty)];
-        ga-raise-error("Can not create radio group for only one option") if +@opts <= 1;
-        @!radio.push(
-            Group::Radio.new(options => @opts, :$optional, :optsetref(self))
-        );
-        @!main.append(@opts);
-        self;
-    }
-
-    multi method append(::?CLASS::D: Str:D $opts, :$optional = True, :$multi!) of ::?CLASS {
-        my @opts = [$!types.create($_) for $opts.split(';', :skip-empty)];
-        ga-raise-error("Can not create multi group for only one option") if +@opts <= 1;
-        @!multi.push(
-            Group::Multi.new(options => @opts, :$optional, :optsetref(self))
-        );
-        @!main.append(@opts);
-        self;
-    }
-
-    multi method append(::?CLASS::D: :$optional = True, :$radio!, *@optpairs where all(@optpairs) ~~ Pair) of ::?CLASS {
-        my @opts = [ $!types.create(.key, .value) for @optpairs];
-        ga-raise-error("Can not create radio group for only one option") if +@opts <= 1;
-        @!radio.push(
-            Group::Radio.new(options => @opts, :$optional, :optsetref(self))
-        );
-        @!main.append(@opts);
-        self;
-    }
-
-    multi method append(::?CLASS::D: :$optional = True, :$multi!, *@optpairs where all(@optpairs) ~~ Pair) of ::?CLASS {
-        my @opts = [ $!types.create(.key, .value) for @optpairs];
-        ga-raise-error("Can not create multi group for only one option") if +@opts <= 1;
-        @!multi.push(
-            Group::Multi.new(options => @opts, :$optional, :optsetref(self))
-        );
-        @!main.append(@opts);
-        self;
-    }
-
-    # non-option operator
-    multi method has(::?CLASS::D: Int:D $id ) of Bool {
-        my @r = [];
-        @r.push((sub (\noref) {
-            for @(noref).keys {
-                if $id == $_ {
-                    return True;
-                }
+    multi method has(::?CLASS::D: Int:D $id --> False) {
+        for %!main, %!pos, %!cmd -> $nos {
+            if $nos{$id}:exists {
+                return True;
             }
-            return False;
-        }($_))) for (%!no-all, %!no-pos, %!no-cmd);
-        return [||] @r;
+        }
     }
 
-    multi method remove(Int:D $id) {
-        -> \noref {
-            for @(noref).keys {
-                if $id == $_ {
-                    noref{$id}:delete;
-                    last;
-                }
+    multi method reset(::?CLASS::D: Int:D $id) {
+        for %!main, %!pos, %!cmd -> $nos {
+            if $nos{$id}:exists {
+                $nos{$id}.reset-success;
             }
-        }($_) for (%!no-all, %!no-pos, %!no-cmd);
+        }
     }
 
-    multi method EXISTS-KEY(::?CLASS::D: Int:D $id) of Bool {
+    multi method EXISTS-KEY(::?CLASS::D: Int:D $id --> Bool) {
         self.has($id);
     }
 
-    method get-main(::?CLASS::D:) {
-        return %!no-all;
+    multi method AT-KEY(::?CLASS::D: Int:D $id --> NonOption) {
+        self.get($id);
+    }
+
+    multi method get-main(::?CLASS::D:) {
+        return %!main;
+    }
+
+    multi method get-main(::?CLASS::D: Int:D $id --> NonOption) {
+        return %!main{$id};
+    }
+
+    multi method get-cmd(::?CLASS::D: Str:D $name --> NonOption) {
+        for %!main.values {
+            return $_ if .name eq $name;
+        }
     }
 
     multi method get-cmd(::?CLASS::D:) {
-        %!no-cmd;
+        %!cmd;
     }
 
-    multi method get-cmd(::?CLASS::D: Int $id) {
-        %!no-cmd{$id};
+    multi method get-cmd(::?CLASS::D: Int $id --> NonOption) {
+        %!cmd{$id};
     }
 
-    multi method get-cmd(::?CLASS::D: Str $name) {
-        for %!no-cmd.values {
+    multi method get-cmd(::?CLASS::D: Str:D $name --> NonOption) {
+        for %!cmd.values {
             return $_ if .name eq $name;
         }
     }
 
     multi method get-pos(::?CLASS::D:) {
-        %!no-pos;
+        %!pos;
     }
 
-    multi method get-pos(::?CLASS::D: Int $id) {
-        %!no-pos{$id};
+    multi method get-pos(::?CLASS::D: Int $id --> NonOption) {
+        %!pos{$id};
     }
 
-    multi method get-pos(::?CLASS::D: Str $name, $index) {
-        for %!no-pos.values {
-            if .name eq $name && .match-index(4096, $index) {
+    multi method get-pos(::?CLASS::D: Str:D $name, $index --> NonOption) {
+        for %!pos.values {
+            if .name eq $name && .match-index(MAXPOSSUPPORT, $index) {
                 return $_;
             }
         }
     }
 
-    multi method reset-cmd(::?CLASS::D: Int $id) {
-        %!no-cmd{$id}.reset-success;
+    multi method reset-main(::?CLASS::D: Int $id) {
+        %!main{$id}.reset-success;
     }
 
-    multi method reset-cmd(::?CLASS::D: Str $name) {
-        for %!no-cmd.values {
+    multi method reset-main(::?CLASS::D: Str:D $name) {
+        for %!main.values {
+            .reset-success if .name eq $name;
+        }
+    }
+
+    multi method reset-cmd(::?CLASS::D: Int $id) {
+        %!cmd{$id}.reset-success;
+    }
+
+    multi method reset-cmd(::?CLASS::D: Str:D $name) {
+        for %!cmd.values {
             .reset-success if .name eq $name;
         }
     }
 
     multi method reset-pos(::?CLASS::D: Int $id) {
-        %!no-pos{$id}.reset-success;
+        %!pos{$id}.reset-success;
     }
 
     multi method reset-pos(::?CLASS::D: Str $name, $index) {
-        for %!no-pos.values {
+        for %!pos.values {
             if .name eq $name && .match-index(4096, $index) {
                 .reset-success;
             }
         }
     }
 
-    multi method insert-main(::?CLASS::D: &callback) of Int {
+    multi method insert-main(::?CLASS::D: &callback --> Int ) {
         my $id = $!counter++;
-        %!no-all.push(
-            $id => NonOption::All.new( :&callback)
+        %!main.push(
+            $id => self.create("main=m", :&callback)
         );
         return $id;
     }
 
-    multi method insert-cmd(::?CLASS::D: Str:D $name) of Int {
+    multi method insert-main(::?CLASS::D: Str:D $name, &callback --> Int ) {
         my $id = $!counter++;
-        %!no-cmd.push(
-            $id => NonOption::Cmd.new( callback => -> Argument $a {}, :$name)
+        %!main.push(
+            $id => self.create("{$name}=m", :&callback)
         );
         return $id;
     }
 
-    multi method insert-cmd(::?CLASS::D: Str:D $name, &callback) of Int {
+    multi method insert-cmd(::?CLASS::D: Str:D $name --> Int ) {
         my $id = $!counter++;
-        %!no-cmd.push(
-            $id => NonOption::Cmd.new( :&callback, :$name)
+        %!cmd.push(
+            $id => self.create("{$name}=c", callback => sub () { })
         );
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, &callback, :$front!) of Int {
+    multi method insert-cmd(::?CLASS::D: Str:D $name, &callback --> Int ) {
         my $id = $!counter++;
-        %!no-pos.push(
-            $id => NonOption::Pos.new-front( :&callback, :$name)
+        %!cmd.push(
+            $id => self.create("{$name}=c", :&callback)
         );
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, &callback, :$last!) of Int {
+    multi method insert-pos(::?CLASS::D: Str:D $name, &callback, :$front! --> Int ) {
         my $id = $!counter++;
-        %!no-pos.push(
-            $id => NonOption::Pos.new-last( :&callback, :$name)
+        %!pos.push(
+            $id => self.create("{$name}=p", :&callback, index => 0)
         );
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, $index where Int:D | WhateverCode , &callback) of Int {
+    multi method insert-pos(::?CLASS::D: Str:D $name, &callback, :$last! --> Int ) {
         my $id = $!counter++;
-        %!no-pos.push(
-            $id => NonOption::Pos.new( :$name, :$index, :&callback)
+        %!pos.push(
+            $id => self.create("{$name}=p", :&callback, index => * - 1)
+        );
+        return $id;
+    }
+
+    multi method insert-pos(::?CLASS::D: Str:D $name, $index where Int:D | WhateverCode , &callback --> Int ) {
+        my $id = $!counter++;
+        %!pos.push(
+            $id => self.create("{$name}=p", :&callback, :$index)
         );
         return $id;
     }
@@ -524,61 +470,28 @@ class OptionSet {
                 $group.check();
             }
         }
-        .check unless .optional for @!main;
+        .check unless .optional for @!options;
     }
 
-    method annotation(::?CLASS::D:) {
-		return [] if @!main.elems == 0;
-		if (require Terminal::Table <&array-to-table>) || 1 {
-			my @annotation;
-
-			for @!main -> $opt {
-				@annotation.push([
-					$opt.usage,
-					$opt.annotation ~ (do {
-						if $opt.default-value.defined {
-							"[{$opt.default-value}]";
-						} else {
-							"";
-						}
-					})
-				]);
-			}
-			&array-to-table(@annotation, style => 'none');
-		}
+    method set-parser(Supply:D $parser) {
+        for (%!main, %!cmd, %!pos) -> %need-parser {
+            .value.set-parser($parser) for %need-parser;
+        }
+        .set-parser($parser) for @!options;
+        self;
     }
 
     method clone(*%_) {
         nextwith(
-            main => %_<main> // @!main.clone,
-            radio => %_<radio> // @!radio.clone,
-            multi => %_<multi> // @!multi.clone,
-            no-all => %_<no-all> // %!no-all.clone,
-            no-pos => %_<no-pos> // %!no-pos.clone,
-            no-cmd => %_<no-cmd> // %!no-cmd.clone,
+            options => %_<options> // @!options.clone,
+            radio   => %_<radio> // @!radio.clone,
+            multi   => %_<multi> // @!multi.clone,
+            main    => %_<main> // %!main.clone,
+            pos     => %_<pos> // %!pos.clone,
+            cmd     => %_<cmd> // %!cmd.clone,
+            types   => %_<types> // $!types,
+            counter => %_<counter> // $!counter,
             |%_,
         );
     }
-}
-
-#| &wrap-command using `run` execute the $cmd
-#| call &tweak after &getopt called
-sub wrap-command(OptionSet $os, $cmd, @args is copy = @*ARGS, :&tweak, :$async, *%args) is export {
-    my %gargs = parser =>&ga-pre-parser;
-
-    # remove the args of getopt
-    for < helper stdout stderr strict autohv version bsd-style x-style > {
-        if %args{$_}:exists {
-            %gargs{$_} = %args{$_};
-            %args{$_}:delete;
-        }
-    }
-    my $ret = &getopt(@args, $os, |%gargs);
-
-    &tweak($os, $ret) if &tweak.defined;
-
-    if $async {
-       return Proc::Async.new($cmd, |$ret.noa, |%args);
-    }
-    return run($cmd, |$ret.noa, |%args);
 }
