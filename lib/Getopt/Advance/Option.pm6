@@ -24,7 +24,7 @@ multi sub tapTheParser(Supply:D \parser, Option $option) {
             if $v.style >= Style::XOPT && $v.style <= Style::BSD {
                 $v.process($option);
             }
-        },
+        }, 
         #| should have a quit named argument, or will not throw exception to outter
         quit => QUITBLOCK,
     );
@@ -51,7 +51,7 @@ role Option {
     method short( --> Str) {
         $!short;
     }
-
+    
     method callback {
         &!callback;
     }
@@ -79,7 +79,7 @@ role Option {
 
     method set-short(Str:D $!short) { }
 
-    method set-callback( &callback where .signature ~~ :($, $) | :($) ) {
+    method set-callback( &callback where .signature ~~ :($, $) | :($) ) { 
         &!callback = &callback;
     }
 
@@ -138,7 +138,7 @@ role Option {
     method reset-annotation {
         self.set-annotation("");
     }
-
+    
     method type( --> Str) { ... }
 
     method check() {
@@ -441,3 +441,4 @@ class Option::Hash does Option {
         $value ~~ Pair || (try so $value.pairup) || Pair::Grammar.parse($value).so;
     }
 }
+

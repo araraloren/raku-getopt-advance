@@ -137,7 +137,7 @@ class TypesManager is export {
         my %realargs;
 
         unless self.has($setting.opt-type) {
-           die "Invalid option type: {$setting.opt-type}";
+           die "Invalid option type: {$setting.opt-type}"; 
         }
 
         if %args<owner>:exists {

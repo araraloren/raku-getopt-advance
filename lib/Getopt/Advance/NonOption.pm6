@@ -17,7 +17,7 @@ multi sub tapTheParser(Supply:D \parser, NonOption $no) {
             if $v.style >= Style::MAIN && $v.style <= Style::POS {
                 $v.process($no);
             }
-        },
+        }, 
         #| should have a quit named argument, or will not throw exception to outter
         quit => QUITBLOCK,
     );

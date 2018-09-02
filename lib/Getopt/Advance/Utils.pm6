@@ -41,8 +41,8 @@ class MatchContext is export {
 
         method match(MatchContext $mc, $o) {
             my $name-r = do given $!prefix {
-                    when Prefix::LONG {
-                        $o.long eq $!name;
+                    when Prefix::LONG { 
+                        $o.long eq $!name; 
                     }
                     when Prefix::SHORT {
                         $o.short eq $!name;
@@ -73,7 +73,7 @@ class MatchContext is export {
     }
 
     class NonOption does Context {
-        has $.argument;
+        has $.argument;     
 
         method match(MatchContext $mc, $no) {
             my $style-r = $no.match-style($mc.style);
@@ -154,7 +154,7 @@ class MatchContext is export {
                 }
                 $!handler.set-success();
             }
-        }
+        }            
     }
 }
 
@@ -177,7 +177,7 @@ class Debug is export {
 
     our sub debug(Str $log) {
         Debug::print($log, Debug::DEBUG);
-    }
+    } 
 
     our sub info(Str $log) {
         Debug::print($log, Debug::INFO);
@@ -190,7 +190,7 @@ class Debug is export {
     our sub error(Str $log) {
         Debug::print($log, Debug::ERROR);
     }
-
+    
     our sub die(Str $log) {
         die $log;
     }

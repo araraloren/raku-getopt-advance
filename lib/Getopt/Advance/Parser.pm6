@@ -84,7 +84,7 @@ class Option::Actions {
 
     method !guess-option(&getarg) {
         my @guess;
-
+        
         if $!value.defined {
             @guess.push([ $!value === False ?? False !! True, sub { $!value } ]);
         } elsif &getarg.defined {
@@ -113,7 +113,7 @@ class Option::Actions {
                         )
                     ],
                 );
-            }
+            } 
         }
     }
 
@@ -134,7 +134,7 @@ class Option::Actions {
                         )
                     ]
                 );
-            }
+            } 
         }
     }
 
@@ -216,7 +216,7 @@ class Option::Actions {
 
 role ResultHandler is export {
     has $.success = False;
-    has $.skiparg = False;
+    has $.skiparg = False; 
 
     #| set we match success
     method set-success() {
@@ -249,7 +249,7 @@ role Parser is export {
     has $.actions;
     has $.arg;
     has &.is-next-arg-available;
-    has ResultHandler $.nrh; #| for NonOption
+    has ResultHandler $.nrh; #| for NonOption 
     has ResultHandler $.brh; #| for BSD Option
     has ResultHandler $.orh; #| for Option
     has @.noa;
@@ -311,14 +311,14 @@ role Parser is export {
     method skip() {
         $!index += 1;
     }
-
+    
     method CALL-ME( --> Supply) {
         supply {
             Debug::debug("Got arguments '{@!args.join(" ")}' from input");
             while $!index < $!count {
                 ($!arg, $!actions) = ( @!args[$!index], Option::Actions.new );
 
-                sub getCurrentArg() { $!arg; }
+                sub get-option-arg() { @!args[$!index + 1]; }
 
                 Debug::debug("Process the argument '{$!arg}'\@{$!index}");
 
@@ -328,7 +328,7 @@ role Parser is export {
                     for @!styles -> $style {
                         if $style.defined {
                             Debug::debug("** Start broadcast {$style.key.Str} style option");
-                            $!actions.broadcast-option(&!is-next-arg-available(self) ?? &getCurrentArg !! Callable, |$style);
+                            $!actions.broadcast-option(&!is-next-arg-available(self) ?? &get-option-arg !! Callable, |$style);
                             Debug::debug("** End broadcast {$style.key.Str} style option");
                         }
                     }

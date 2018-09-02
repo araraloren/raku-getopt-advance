@@ -17,10 +17,10 @@ role Group {
 
     # @options are names of options in group
     submethod TWEAK(:@options) {
-        @!names = [];
+        @!infos = [];
         for @options {
-            @!names.push(
-                Group::OptionName.new(long => .long, short => .short, type => .type)
+            @!infos.push(
+                OptionInfo.new(long => .long, short => .short, type => .type)
             );
         }
     }
@@ -29,13 +29,13 @@ role Group {
         my $usage = "";
 
         $usage ~= $!optional ?? "+\[ " !! "+\< ";
-        $usage ~= $!owner.get(.long eq "" ?? .short !! .long).usage() for @!names;
+        $usage ~= $!owner.get(.long eq "" ?? .short !! .long).usage() for @!infos;
         $usage ~= $!optional ?? " \]+" !! " \>+";
         $usage;
     }
 
     method has(Str:D $name, Str:D $type = WhateverType --> False) {
-        for @!names {
+        for @!infos {
             if $type eq .type && ($name eq .long || $name eq .short) {
                 return True;
             }
@@ -43,10 +43,10 @@ role Group {
     }
 
     method remove(Str:D $name, Str:D $type = WhateverType --> False) {
-        for ^+@!names -> $index {
-            given @!names[$index] {
+        for ^+@!infos -> $index {
+            given @!infos[$index] {
                 if $type eq .type && ($name eq .long || $name eq .short) {
-                    @!names.splice($index, 1);
+                    @!infos.splice($index, 1);
                     return True;
                 }
             }
@@ -58,7 +58,7 @@ role Group {
     method clone(*%_) {
         nextwith(
             owner => %_<owner> // $!owner,
-            names => %_<names> // @!names.clone,
+            infos => %_<infos> // @!infos.clone,
             optional => %_<optional> // $!optional,
             |%_
         );
@@ -69,9 +69,9 @@ class Group::Radio does Group {
     method check() {
         my $count = 0;
 
-        for @!names {
+        for @!infos {
             my $name = .long eq "" ?? .short !! .long;
-            $count += 1 if $!optsetref.get($name).has-value;
+            $count += 1 if $!owner.get($name).has-value;
         }
         given $count {
             when 0 {
@@ -91,11 +91,11 @@ class Group::Multi does Group {
         unless $!optional {
             my $count = 0;
 
-            for @!names {
+            for @!infos {
                 my $name = .long eq "" ?? .short !! .long;
-                $count += 1 if $!optsetref.get($name).has-value;
+                $count += 1 if $!owner.get($name).has-value;
             }
-            if $count < +@!names {
+            if $count < +@!infos {
                 ga-group-error("{self.usage}: Multi option group value is force required!");
             }
         }
