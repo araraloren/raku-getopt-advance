@@ -79,7 +79,7 @@ class NonOption::Cmd does NonOption {
     }
 
     method set-callback(
-        &callback where .signature ~~ :($, $) | :($) | :()
+        &callback where .signature ~~ :($, @) | :(@) | :()
     ) {
         &!callback = &callback;
     }

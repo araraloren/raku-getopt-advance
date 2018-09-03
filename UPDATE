@@ -1,9 +1,13 @@
 
 = UPDATE LOG
 
+* 2018-09-04
+
+    Fix the signature error of `Cmd`.
+
 * 2018-08-25
 
-    Add a method `merge` to `OptionSet`
+    Add a method `merge` to `OptionSet`.
 
 * 2018-07-06
 
