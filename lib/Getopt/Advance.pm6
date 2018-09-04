@@ -478,7 +478,7 @@ class OptionSet {
     multi method insert-cmd(::?CLASS::D: Str:D $name) of Int {
         my $id = $!counter++;
         %!no-cmd.push(
-            $id => NonOption::Cmd.new( callback => -> Argument $a {}, :$name)
+            $id => NonOption::Cmd.new( callback => sub (@a) {}, :$name)
         );
         return $id;
     }
