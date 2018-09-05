@@ -17,43 +17,40 @@ multi sub tapTheParser(Supply:D \parser, NonOption $no) {
             if $v.style >= Style::MAIN && $v.style <= Style::POS {
                 $v.process($no);
             }
-        }, 
+        },
         #| should have a quit named argument, or will not throw exception to outter
         quit => QUITBLOCK,
     );
 }
 
 
-role NonOption {
-    has $.success;
+role NonOption does RefOptionSet {
+    has Str  $.name;
+    has Int  $.index;
+    has Any  $.value; #| for main is return value, for pos is noa, for cmd is nothing
     has &!callback;
-    has $.name;
-    has $.owner;
 
-    #| provide an empty sub
-    method index( --> Int) { }
-
-    method value( --> Any) { }
-
-    method set-value($) { }
-
-    method set-callback(&!callback) { ... }
-
-    method set-owner($!owner) { }
+    method set-callback(&!callback) { }
 
     method set-parser(Supply:D $parser) {
         &tapTheParser($parser, self);
     }
 
-    method has-callback( --> Bool) { &!callback.defined; }
-
-    method reset-success { $!success = False; }
-
+    #| match method
     method match-index(Int $total, Int $index --> Bool) { ... }
 
     method match-name(Str $name --> Bool) { ... }
 
     method match-style($style --> Bool) { ... }
+
+    #| others
+    method success() { so $!value; }
+
+    method reset-success() { $!value = Any; }
+
+    method reset() { $!value = Any; }
+
+    method has-callback( --> Bool) { &!callback.defined; }
 
     method CALL-ME(|c) {
         my $ret;
@@ -68,7 +65,6 @@ role NonOption {
 				$ret = &!callback();
 			}
         }
-        $!success = True;
         return $ret;
     }
 
@@ -76,9 +72,12 @@ role NonOption {
 
     method usage( --> Str) { ... }
 
+    #| clone lose the value and sucess
     method clone() {
         nextwith(
-            success  => %_<success> // $!success.clone,
+            index => %_<index> // $!index.clone,
+            name  => %_<name>  // $!name.clone,
+            callback => %_<callback> // &!callback.clone,
             |%_
         );
     }
@@ -86,6 +85,7 @@ role NonOption {
 
 class NonOption::Main does NonOption {
     submethod TWEAK(:&callback) {
+        $!index = -1;
         self.set-callback(&callback);
     }
 
@@ -101,6 +101,10 @@ class NonOption::Main does NonOption {
 
     method match-style($style --> Bool) { $style == Style::MAIN; }
 
+    method CALL-ME(|c) {
+        $!value = self.NonOption::CALL-ME(|c);
+    }
+
     method type(--> "main") { }
 
     method usage() { '*@args' }
@@ -108,17 +112,18 @@ class NonOption::Main does NonOption {
 
 class NonOption::Cmd does NonOption {
     submethod TWEAK(:&callback) {
+        $!index = 0;
         self.set-callback(&callback);
     }
 
     method set-callback(
-        &callback where .signature ~~ :($, $) | :($) | :()
+        &callback where .signature ~~ :($, @) | :(@) | :()
     ) {
         &!callback = &callback;
     }
 
     method match-index(Int $total, Int $index --> Bool) {
-        $index == 0;
+        $index == $!index;
     }
 
     method match-name(Str $name --> Bool) {
@@ -128,18 +133,7 @@ class NonOption::Cmd does NonOption {
     method match-style($style --> Bool) { $style == Style::CMD; }
 
     method CALL-ME(|c) {
-        given &!callback.signature {
-            when :($, @) {
-                &!callback(|c);
-            }
-            when :(@) {
-                &!callback(c.[* - 1]);
-            }
-			when :() {
-				&!callback();
-			}
-        }
-        $!success = True;
+        $!value = so self.NonOption::CALL-ME(|c);
     }
 
     method type( --> "cmd") { }
@@ -148,9 +142,6 @@ class NonOption::Cmd does NonOption {
 }
 
 class NonOption::Pos does NonOption {
-    has $.value;
-    has $.index;
-
     submethod TWEAK(:&callback, :$index) {
         self.set-callback(&callback);
         if $index ~~ Int && $index < 0 {
@@ -172,43 +163,27 @@ class NonOption::Pos does NonOption {
         return $readl-index == $expect-index;
     }
 
-    method match-name(Str $name) {
-        self.name() eq $name;
-    }
+    method match-name(Str $name --> True ) { }
 
     method match-style($style --> Bool) { $style == Style::POS; }
 
     method CALL-ME(|c) {
+        my $ret;
         given &!callback.signature {
             when :($, $) {
-                &!callback(|c);
+                $ret = &!callback(|c);
             }
             when :($) {
-                &!callback(c.[* - 1]);
+                $ret = &!callback(c.[* - 1]);
             }
 			when :() {
-				&!callback();
+				$ret = &!callback();
 			}
         }
-        $!success = True;
+        return ($!value = $ret);
     }
 
     method type( --> "pos") { }
 
-    method clone() {
-        nextwith(
-            index    => %_<index> // $!index.clone,
-            value    => %_<value> // $!index.clone,
-            success  => %_<success> // $!success.clone,
-            |%_
-        );
-    }
-
     method usage() { self.name(); }
-
-    method set-value($value) { $!value = $value; }
-
-    method value {
-        $!value;
-    }
 }
