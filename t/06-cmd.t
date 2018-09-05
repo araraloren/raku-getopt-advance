@@ -1,7 +1,7 @@
 
 use Test;
-use Getopt::Advance;
-use Getopt::Advance::Exception;
+use Getopt::Advance:api<2>;
+use Getopt::Advance::Exception:api<2>;
 
 plan 6;
 
@@ -42,18 +42,19 @@ $osa.insert-main(sub ($os, @_) { $os });
 $osa.insert-pos(
     "want-digit",
     0,
-    sub ($_) {
-        &ga-try-next-pos("want a digit");
-    }
+    sub ($_) { say "CALL ME"; False }
 );
 
 my OptionSet $osb = $osa.clone();
 my OptionSet $osc = $osa.clone();
 
-$osa.insert-cmd("a");
-$osb.insert-cmd("b");
-$osc.insert-cmd("c");
+my $a = $osa.insert-cmd("a");
+my $b = $osb.insert-cmd("b");
+my $c = $osc.insert-cmd("c");
 
 for < a b c > -> $cmd {
     is &getopt(<< $cmd >>.List, $osa, $osb, $osc).optionset, {a => $osa, b => $osb, c => $osc}{$cmd}, "match cmd ok";
+    $osa.reset-cmd($a);
+    $osb.reset-cmd($b);
+    $osc.reset-cmd($c);
 }

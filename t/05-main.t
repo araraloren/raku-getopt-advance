@@ -1,12 +1,13 @@
 
 use Test;
-use Getopt::Advance;
+use Getopt::Advance:api<2>;
 
 plan 4;
 
 my OptionSet $optset .= new;
 
 $optset.insert-main(&sum1);
+
 my $sumid = $optset.insert-main(&sum2);
 
 getopt(

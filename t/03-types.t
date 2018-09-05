@@ -5,12 +5,12 @@ use Getopt::Advance::Option:api<2>;
 
 my $types = TypesManager.new;
 
-$types.register('b', Option::Boolean)
-      .register('i', Option::Integer)
-      .register('s', Option::String)
-      .register('a', Option::Array)
-      .register('h', Option::Hash)
-      .register('f', Option::Float);
+$types.registe('b', Option::Boolean)
+      .registe('i', Option::Integer)
+      .registe('s', Option::String)
+      .registe('a', Option::Array)
+      .registe('h', Option::Hash)
+      .registe('f', Option::Float);
 
 # short option
 for < b i s a h f> -> $type {

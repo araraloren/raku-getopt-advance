@@ -1,7 +1,7 @@
 
 use Test;
-use Getopt::Advance;
-use Getopt::Advance::Option;
+use Getopt::Advance:api<2>;
+use Getopt::Advance::Option:api<2>;
 
 my OptionSet $optset .= new;
 
@@ -45,25 +45,25 @@ getopt(
 
 ok $optset.has("O1"), "has O1 option";
 ok $optset{"O2"}:exists, "has O2 option";
-ok $optset{"Ow"}:exists, "has O2 option";
+ok $optset{"Ow"}:exists, "has Ow option";
 ok $optset.remove("Ow"), "remove Ow option";
-nok $optset{"Ow"}:exists, "removed O2 option";
+nok $optset{"Ow"}:exists, "removed Ow option";
 ok $optset{<help v>}:exists, "has help and v";
 ok $optset{'help'}, "set help option ok";
 ok $optset.get('h').value, "set help option ok";
-ok [&&] $optset{<help v>}, "help and version all set";
-is $optset.get("h").annotation, "print this help message";
+ok ([&&] $optset{<help v>}), "help and version all set";
+is $optset.get("h").annotation(), "print this help message", "get annotation ok";
 ok "Wall" (elem) $optset<f>, "set value ok";
 ok $optset{"d2"}, "set debug mode2 ok";
 
 sub checkMain($self, $a) {
     ok $self === $optset.get("main"), "same option";
-    is $a, "int main(int argc, char* argv[])";
+    is $a, "int main(int argc, char* argv[])", "get main function header ok";
 }
 
 sub checkCompile($self, $a) {
     ok $self === $optset.get("compile"), "same option";
-    is $a, "clang";
+    is $a, "clang", "get compile ok";
 }
 
 done-testing();

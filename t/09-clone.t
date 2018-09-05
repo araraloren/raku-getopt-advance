@@ -1,6 +1,6 @@
 
 use Test;
-use Getopt::Advance;
+use Getopt::Advance:api<2>;
 
 plan 7;
 
@@ -12,11 +12,15 @@ $optset.insert-main(sub main($, @) {
     nok $optset.has("z"), "clone ok";
 });
 
-my $another = $optset.clone();
+my OptionSet $another = $optset.clone();
+
+
 
 $optset.push("v|version=b");
 $optset.append("a=s;b=b;c=f", :radio);
 $another.push("z|zsd=h");
+
+say $optset.values;
 
 getopt([], $optset);
 
