@@ -1,4 +1,5 @@
 
+use Getopt::Advance::Utils:api<2>;
 use Getopt::Advance::Types:api<2>;
 use Getopt::Advance::Exception:api<2>;
 
@@ -10,8 +11,7 @@ class OptionInfo {
     has $.type;
 }
 
-role Group {
-    has $.owner;
+role Group does RefOptionSet {
     has @.infos;
     has $.optional = True;
 
@@ -29,7 +29,7 @@ role Group {
         my $usage = "";
 
         $usage ~= $!optional ?? "+\[ " !! "+\< ";
-        $usage ~= $!owner.get(.long eq "" ?? .short !! .long).usage() for @!infos;
+        $usage ~= self.owner.get(.long eq "" ?? .short !! .long).usage() for @!infos;
         $usage ~= $!optional ?? " \]+" !! " \>+";
         $usage;
     }
@@ -57,7 +57,6 @@ role Group {
 
     method clone(*%_) {
         nextwith(
-            owner => %_<owner> // $!owner,
             infos => %_<infos> // @!infos.clone,
             optional => %_<optional> // $!optional,
             |%_
@@ -71,16 +70,16 @@ class Group::Radio does Group {
 
         for @!infos {
             my $name = .long eq "" ?? .short !! .long;
-            $count += 1 if $!owner.get($name).has-value;
+            $count += 1 if self.owner.get($name).has-value;
         }
         given $count {
             when 0 {
                 unless $!optional {
-                    ga-group-error("{self.usage}: Radio option group value is force required!");
+                    &ga-group-error("{self.usage}: Radio option group value is force required!");
                 }
             }
             when * > 1 {
-                ga-group-error("{self.usage}: Radio group value only allow set one!");
+                &ga-group-error("{self.usage}: Radio group value only allow set one!");
             }
         }
     }
@@ -93,10 +92,10 @@ class Group::Multi does Group {
 
             for @!infos {
                 my $name = .long eq "" ?? .short !! .long;
-                $count += 1 if $!owner.get($name).has-value;
+                $count += 1 if self.owner.get($name).has-value;
             }
             if $count < +@!infos {
-                ga-group-error("{self.usage}: Multi option group value is force required!");
+                &ga-group-error("{self.usage}: Multi option group value is force required!");
             }
         }
     }
