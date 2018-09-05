@@ -14,6 +14,14 @@ class Style is export {
 class Debug { ... }
 class MatchContext { ... }
 
+role RefOptionSet is export {
+    has $.owner;
+
+    method set-owner($!owner) { }
+
+    method owner() { $!owner; }
+}
+
 role Context is export {
     has $.success;
 
@@ -41,8 +49,8 @@ class MatchContext is export {
 
         method match(MatchContext $mc, $o) {
             my $name-r = do given $!prefix {
-                    when Prefix::LONG { 
-                        $o.long eq $!name; 
+                    when Prefix::LONG {
+                        $o.long eq $!name;
                     }
                     when Prefix::SHORT {
                         $o.short eq $!name;
@@ -73,13 +81,16 @@ class MatchContext is export {
     }
 
     class NonOption does Context {
-        has $.argument;     
+        has $.argument;
 
         method match(MatchContext $mc, $no) {
             my $style-r = $no.match-style($mc.style);
             my $name-r = do given $mc.style {
                 when Style::MAIN {
                     $no.match-name("");
+                }
+                when Style::CMD {
+                    $no.match-name(@($!argument)[0].Str);
                 }
                 default {
                     $no.match-name($!argument.Str);
@@ -89,32 +100,41 @@ class MatchContext is export {
                 when Style::MAIN {
                     $no.match-index(MAXPOSSUPPORT, -1);
                 }
+                when Style::CMD {
+                    $no.match-index(MAXPOSSUPPORT, 0);
+                }
                 default {
                     $no.match-index(MAXPOSSUPPORT, $!argument.index);
                 }
             };
-            Debug::debug("    - Match " ~ ($style-r && $name-r && $index-r ?? "Okay!" !! "Failed!"));
-            return $style-r && $name-r && $index-r;
+            my $check-r = $style-r && $name-r && $index-r;
+            my $call-r = $check-r && do {
+                given $mc.style {
+                    when Style::MAIN {
+                        Debug::debug("    - Try call {$mc.style} sub.");
+                        $no.($no.owner, @$!argument);
+                    }
+                    when Style::CMD {
+                        my @realargs = @($!argument).[1..*-1];
+                        Debug::debug("    - Try call {$mc.style} sub.");
+                        $no.($no.owner, @realargs);
+                    }
+                    default {
+                        Debug::debug("    - Try call {$mc.style} sub.");
+                        $no.($no.owner, $!argument);
+                    }
+                }
+            };
+            Debug::debug("    - Match " ~ ($call-r ?? "Okay!" !! "Failed!"));
+            return $call-r;
         }
 
-        method set(MatchContext $mc, $no) {
-            given $mc.style {
-                when Style::MAIN {
-                    $no.($no.owner, @$!argument);
-                    Debug::debug("    - OK! Call {$mc.style} sub okay.");
-                }
-                default {
-                    $no.($no.owner, $!argument);
-                    $no.set-value($!argument.Str);
-                    Debug::debug("    - OK! Call {$mc.style} sub okay.");
-                }
-            }
-        }
+        method set(MatchContext $mc, $no) { }
 
         method gist() { "\{{self.argument.Str}\@{self.argument.?index}\}" }
     }
 
-    class Main is NonOption {
+    class MainOrCmd is NonOption {
         method gist() {
             my $gist = "\{";
             $gist ~= [ "{.Str}\@{.index}" for @(self.argument) ].join(",");
@@ -138,7 +158,7 @@ class MatchContext is export {
             my $matched = True;
             for @!contexts -> $context {
                 if ! $context.success {
-                    Debug::debug("  - Match {$context.gist} <-> {$o.usage}");
+                    Debug::debug("  - Match {$context.gist} <=> {$o.usage}");
                     if $context.match(self, $o) {
                         $context.set(self, $o);
                     } else {
@@ -154,7 +174,7 @@ class MatchContext is export {
                 }
                 $!handler.set-success();
             }
-        }            
+        }
     }
 }
 
@@ -177,7 +197,7 @@ class Debug is export {
 
     our sub debug(Str $log) {
         Debug::print($log, Debug::DEBUG);
-    } 
+    }
 
     our sub info(Str $log) {
         Debug::print($log, Debug::INFO);
@@ -190,7 +210,7 @@ class Debug is export {
     our sub error(Str $log) {
         Debug::print($log, Debug::ERROR);
     }
-    
+
     our sub die(Str $log) {
         die $log;
     }
