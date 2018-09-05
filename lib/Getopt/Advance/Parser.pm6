@@ -84,7 +84,7 @@ class Option::Actions {
 
     method !guess-option(&getarg) {
         my @guess;
-        
+
         if $!value.defined {
             @guess.push([ $!value === False ?? False !! True, sub { $!value } ]);
         } elsif &getarg.defined {
@@ -113,7 +113,7 @@ class Option::Actions {
                         )
                     ],
                 );
-            } 
+            }
         }
     }
 
@@ -134,7 +134,7 @@ class Option::Actions {
                         )
                     ]
                 );
-            } 
+            }
         }
     }
 
@@ -216,7 +216,7 @@ class Option::Actions {
 
 role ResultHandler is export {
     has $.success = False;
-    has $.skiparg = False; 
+    has $.skiparg = False;
 
     #| set we match success
     method set-success() {
@@ -249,10 +249,12 @@ role Parser is export {
     has $.actions;
     has $.arg;
     has &.is-next-arg-available;
-    has ResultHandler $.nrh; #| for NonOption 
+    has ResultHandler $.nrh; #| for NonOption
     has ResultHandler $.brh; #| for BSD Option
     has ResultHandler $.orh; #| for Option
+	has ResultHandler $.mrh; #| for Main
     has @.noa;
+	has $.owner;
 
     submethod TWEAK(:@order) {
         self.init(:@order);
@@ -281,10 +283,10 @@ role Parser is export {
                 method handle($parser) {
                     Debug::debug("Call handler for option [{$parser.arg}]");
                     unless self.success {
-                        &ga-try-next("Can not find the option: {$parser.arg}");
+                        &ga-parse-error("Can not find the option: {$parser.arg}");
                     }
                     #| skip next argument if the option has consume an argument
-                    Debug::debug("Skip the next arguments");
+                    Debug::debug("Will skip the next arguments");
                     $parser.skip() if self.skiparg();
                     self;
                 }
@@ -298,6 +300,11 @@ role Parser is export {
                 $!brh = ResultHandler.new;
             }
         }
+		unless $!mrh.defined {
+			$!mrh = class :: does ResultHandler {
+				method set-success() { } # skip the set-success, we need call all the MAINs
+			}.new;
+		}
         my (%order, @sorted);
         %order{ @order } = 0 ...^ +@order;
         Debug::debug("Sort the styles with >> {@order.join(" - ")}");
@@ -311,8 +318,8 @@ role Parser is export {
     method skip() {
         $!index += 1;
     }
-    
-    method CALL-ME( --> Supply) {
+
+    method CALL-ME( $!owner --> Supply) {
         supply {
             Debug::debug("Got arguments '{@!args.join(" ")}' from input");
             while $!index < $!count {
@@ -361,16 +368,7 @@ role Parser is export {
                         #| push the arg to @!noa
                         @!noa.push($a);
 
-                        Debug::debug("** Begin NonOption");
-
-                        #| maybe a CMD, and POS[0] maybe exists, so we need reset and call the handler
-                        if $a.index == 0 {
-                            emit MatchContext.new( handler => $!nrh.reset(), style => Style::CMD, contexts => [
-                                    MatchContext::NonOption.new( argument => $a ),
-                                ]
-                            );
-                            $!nrh.handle(self);
-                        }
+                        Debug::debug("** Begin POS NonOption");
 
                         #| maybe a POS
                         emit MatchContext.new( handler => $!nrh.reset(), style => Style::POS, contexts => [
@@ -379,7 +377,7 @@ role Parser is export {
                         );
                         $!nrh.handle(self);
 
-                        Debug::debug("** End NonOption");
+                        Debug::debug("** End POS NonOption");
                     }
                 }
 
@@ -387,13 +385,27 @@ role Parser is export {
                 self.skip();
             }
 
-            Debug::debug("** Broadcast the MAIN NonOption");
-            #| last, we should emit the MAIN
-            emit MatchContext.new( handler => $!nrh.reset(), style => Style::MAIN, contexts => [
-                    MatchContext::Main.new( argument => @!noa ),
-                ]
-            );
-            $!nrh.handle(self);
+			Debug::debug(" + Check the option and group");
+			$!owner.check();
+
+			#| last, we should emit the CMD and MAIN
+            if +@!noa > 0 {
+				Debug::debug("** Broadcast the CMD and MAIN NonOption");
+				emit MatchContext.new( handler => $!nrh.reset(), style => Style::CMD, contexts => [
+	                    MatchContext::MainOrCmd.new( argument => @!noa ),
+	                ]
+	            );
+				$!nrh.handle(self);
+			}
+			#`[check the cmd and pos@0]
+			Debug::debug(" + Check the cmd and pos@0");
+			$!owner.check-cmd();
+			#| we don't want skip any other MAINs, so we using $!mrh skip the set-success method
+			emit MatchContext.new( handler => $!mrh.reset(), style => Style::MAIN, contexts => [
+					MatchContext::MainOrCmd.new( argument => @!noa ),
+				]
+			);
+			$!mrh.handle(self);
         }
     }
 }
