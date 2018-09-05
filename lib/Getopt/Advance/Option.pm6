@@ -24,13 +24,13 @@ multi sub tapTheParser(Supply:D \parser, Option $option) {
             if $v.style >= Style::XOPT && $v.style <= Style::BSD {
                 $v.process($option);
             }
-        }, 
+        },
         #| should have a quit named argument, or will not throw exception to outter
         quit => QUITBLOCK,
     );
 }
 
-role Option {
+role Option does RefOptionSet {
     has $.long              = "";
     has $.short             = "";
     has &.callback          = Callable;
@@ -38,7 +38,6 @@ role Option {
     has Str $.annotation    = "";
     has $.value             = Any;
     has $.default-value     = Any;
-    has $.owner             = Any;
 
     method value {
         $!value;
@@ -51,7 +50,7 @@ role Option {
     method short( --> Str) {
         $!short;
     }
-    
+
     method callback {
         &!callback;
     }
@@ -79,7 +78,7 @@ role Option {
 
     method set-short(Str:D $!short) { }
 
-    method set-callback( &callback where .signature ~~ :($, $) | :($) ) { 
+    method set-callback( &callback where .signature ~~ :($, $) | :($) ) {
         &!callback = &callback;
     }
 
@@ -88,8 +87,6 @@ role Option {
     method set-annotation(Str:D $!annotation) { }
 
     method set-default-value($!default-value) { }
-
-    method set-owner($!owner) { }
 
     method set-parser(Supply:D $parser) {
         &tapTheParser($parser, self);
@@ -138,11 +135,13 @@ role Option {
     method reset-annotation {
         self.set-annotation("");
     }
-    
+
     method type( --> Str) { ... }
 
     method check() {
-        return self.optional() || self.has-value();
+        if !(self.optional() || self.has-value()) {
+            &ga-option-error("{self.usage()}: option need an value!");
+        }
     }
 
     method match-name(Str:D $name) {
@@ -180,7 +179,6 @@ role Option {
             optional    => %_<optional> // $!optional.clone,
             annotation  => %_<annotation> // $!annotation.clone,
             value       => %_<value> // $!value.clone,
-            owner       => %_<owner>,
             default-value=> %_<default-value> // $!default-value.clone,
             |%_
         );
@@ -221,9 +219,6 @@ class Option::Boolean does Option {
     method need-argument(--> Bool) { False; }
 
     method match-value(Mu:D $value) {
-        if $!deactivate && $value {
-            Debug::warn("Only support deactivate style {self.usage()}");
-        }
         return ! ( $!deactivate && $value.so );
     }
 
@@ -249,7 +244,7 @@ class Option::Integer does Option {
         } elsif so +$value {
             self.Option::set-value(+$value, :$callback);
         } else {
-            ga-invalid-value("{self.usage()}: Need an integer.");
+            ga-invalid-value("{self.usage()}: option need an integer.");
         }
     }
 
@@ -276,7 +271,7 @@ class Option::Float does Option {
         } elsif so $value.FatRat {
             self.Option::set-value($value.FatRat, :$callback);
         } else {
-            ga-invalid-value("{self.usage()}: Need float.");
+            ga-invalid-value("{self.usage()}: option need a float.");
         }
     }
 
@@ -303,7 +298,7 @@ class Option::String does Option {
         } elsif so ~$value {
             self.Option::set-value(~$value, :$callback);
         } else {
-            ga-invalid-value("{self.usage()}: Need string.");
+            ga-invalid-value("{self.usage()}: option need a string.");
         }
     }
 
@@ -320,7 +315,7 @@ class Option::Array does Option {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Positional {
-                ga-invalid-value("{self.usage()}: Need an Positional.");
+                ga-invalid-value("{self.usage()}: option need an Positional value.");
             }
             $!value = $!default-value = Array.new(|$value);
         }
@@ -350,7 +345,7 @@ class Option::Hash does Option {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Hash {
-                ga-invalid-value("{self.usage()}: Need a Hash.");
+                ga-invalid-value("{self.usage()}: option need a Hash.");
             }
             $!value = $!default-value = $value;
         }
@@ -370,7 +365,7 @@ class Option::Hash does Option {
         } elsif (my $evalue = self!parse-as-pair($value)) {
             %hash.push($evalue);
         } else {
-            ga-invalid-value("{self.usage()}: Need a Pair.");
+            ga-invalid-value("{self.usage()}: option need an Pair.");
         }
         self.Option::set-value(%hash, :$callback);
     }
@@ -441,4 +436,3 @@ class Option::Hash does Option {
         $value ~~ Pair || (try so $value.pairup) || Pair::Grammar.parse($value).so;
     }
 }
-
