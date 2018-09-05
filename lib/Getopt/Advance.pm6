@@ -5,10 +5,12 @@ use Getopt::Advance::Group:api<2>;
 use Getopt::Advance::Parser:api<2>;
 use Getopt::Advance::Option:api<2>;
 use Getopt::Advance::NonOption:api<2>;
+use Getopt::Advance::Exception:api<2>;
 
 unit module Getopt::Advance:api<2>;
 
 class OptionSet { ... }
+class ReturnValue { ... }
 
 multi sub getopt (
     *@optsets where all(@optsets) ~~ OptionSet,
@@ -25,7 +27,7 @@ multi sub getopt(
     *@optsets where all(@optsets) ~~ OptionSet,
     :$stdout = $*OUT,
     :$stderr = $*ERR,
-    :$parser = Parser, 
+    :$parser = Parser,
     :$strict = True,
     :$autohv = False,
     :$version,
@@ -33,9 +35,16 @@ multi sub getopt(
     :@styles = [ :long, :xopt, :short, :ziparg, :comb ],
     :@order  = < long xopt short ziparg comb >) is export {
     my $parser-gen = Parser.new(:@args, :$strict, :$autohv, :$bsd-style, :@styles, :@order);
-    for @optsets -> $optset {
+
+    loop (my $index = 0; $index <= +@optsets; $index += 1) {
+
+        my $optset := @optsets[$index];
+
         try {
-            my $parser = share-supply($parser-gen.());
+            my $parser = share-supply($parser-gen.($optset));
+
+            say $optset.get-cmd>>.gist;
+            Debug::debug("In matching OptionSet = {$optset.get-cmd>>.gist}");
 
             given $parser {
                 $optset.set-parser(.Supply);
@@ -43,27 +52,70 @@ multi sub getopt(
                 react {
                     whenever $parser.Supply {
                         Debug::debug("Got {$_.perl} in getopt");
+                        QUIT { }
+                        LAST {
+                            say "IN LAST";
+                            say 'parser args => ', @args;
+                        }
                     }
                     $parser.keep();
                 }
+
+                $optset.check();
             }
+
+            say "WILL RETURN";
+
+            return ReturnValue.new(
+                optionset   => $optset,
+                noa         => $parser-gen.noa,
+                parser      => $parser-gen,
+                return-value=> do {
+                    my %rvs;
+                    for %($optset.get-main()) {
+                        %rvs{.key} = .value.value;
+                    }
+                    %rvs;
+                }
+            );
+
             CATCH {
+                when X::GA::ParseError  |
+                     X::GA::OptionError |
+                     X::GA::GroupError  |
+                     X::GA::NonOptionError {
+                         say "Will try next OptionSet.";
+                    Debug::debug("Will try next OptionSet.");
+                }
+
+                when X::GA::WantPrintHelper | X::GA::WantPrintAllHelper
+                { }
+
                 default {
-                    say .gist;
+                    say "IN Exception !!! ", .gist;
                 }
             }
         }
     }
+
+    return ReturnValue;
+}
+
+class ReturnValue is export {
+    has $.optionset;
+    has $.noa;
+    has $.parser;
+    has %.return-value;
 }
 
 class OptionSet is export {
-    has Option @!options;
-    has @!radio;
-    has @!multi;
+    has Option @.options;
+    has @.radio;
+    has @.multi;
     has %!cache;
-    has %!main;
-    has %!cmd;
-    has %!pos;
+    has %.main;
+    has %.cmd;
+    has %.pos;
     has $.types handles < create >;
     has $!counter;
 
@@ -170,9 +222,17 @@ class OptionSet is export {
         self.has(key);
     }
 
+    multi method EXISTS-KEY(::?CLASS::D: Str:D @key --> Bool) {
+        return [&&] [ self.has($_) for @key ];
+    }
+
     #| this return the value of option rather than the option itself
     multi method AT-KEY(::?CLASS::D: Str:D \key ) {
         self.get(key) andthen return .value;
+    }
+
+    multi method AT-KEY(::?CLASS::D: Str:D @key) {
+        return [ self.get($_) for @key ];
     }
 
     multi method set-value(::?CLASS::D: Str:D $name, $value, :$callback = True --> ::?CLASS)  {
@@ -320,7 +380,16 @@ class OptionSet is export {
     multi method reset(::?CLASS::D: Int:D $id) {
         for %!main, %!pos, %!cmd -> $nos {
             if $nos{$id}:exists {
-                $nos{$id}.reset-success;
+                $nos{$id}.reset;
+            }
+        }
+    }
+
+    multi method remove(::?CLASS::D: Int:D $id) {
+        for %!main, %!pos, %!cmd -> $nos {
+            if $nos{$id}:exists {
+                $nos{$id}:delete;
+                last;
             }
         }
     }
@@ -341,9 +410,9 @@ class OptionSet is export {
         return %!main{$id};
     }
 
-    multi method get-cmd(::?CLASS::D: Str:D $name --> NonOption) {
+    multi method get-main(::?CLASS::D: Str:D $name --> NonOption) {
         for %!main.values {
-            return $_ if .name eq $name;
+            return $_ if .match-name($name);
         }
     }
 
@@ -351,13 +420,13 @@ class OptionSet is export {
         %!cmd;
     }
 
-    multi method get-cmd(::?CLASS::D: Int $id --> NonOption) {
+    multi method get-cmd(::?CLASS::D: Int:D $id --> NonOption) {
         %!cmd{$id};
     }
 
     multi method get-cmd(::?CLASS::D: Str:D $name --> NonOption) {
         for %!cmd.values {
-            return $_ if .name eq $name;
+            return $_ if .match-name($name);
         }
     }
 
@@ -371,40 +440,40 @@ class OptionSet is export {
 
     multi method get-pos(::?CLASS::D: Str:D $name, $index --> NonOption) {
         for %!pos.values {
-            if .name eq $name && .match-index(MAXPOSSUPPORT, $index) {
+            if .match-name($name) && .match-index(MAXPOSSUPPORT, $index) {
                 return $_;
             }
         }
     }
 
     multi method reset-main(::?CLASS::D: Int $id) {
-        %!main{$id}.reset-success;
+        %!main{$id}.reset;
     }
 
     multi method reset-main(::?CLASS::D: Str:D $name) {
         for %!main.values {
-            .reset-success if .name eq $name;
+            .reset if .name eq $name;
         }
     }
 
     multi method reset-cmd(::?CLASS::D: Int $id) {
-        %!cmd{$id}.reset-success;
+        %!cmd{$id}.reset;
     }
 
     multi method reset-cmd(::?CLASS::D: Str:D $name) {
         for %!cmd.values {
-            .reset-success if .name eq $name;
+            .reset if .name eq $name;
         }
     }
 
     multi method reset-pos(::?CLASS::D: Int $id) {
-        %!pos{$id}.reset-success;
+        %!pos{$id}.reset;
     }
 
     multi method reset-pos(::?CLASS::D: Str $name, $index) {
         for %!pos.values {
             if .name eq $name && .match-index(4096, $index) {
-                .reset-success;
+                .reset;
             }
         }
     }
@@ -428,7 +497,7 @@ class OptionSet is export {
     multi method insert-cmd(::?CLASS::D: Str:D $name --> Int ) {
         my $id = $!counter++;
         %!cmd.push(
-            $id => self.create("{$name}=c", callback => sub () { })
+            $id => self.create("{$name}=c", callback => sub () { True })
         );
         return $id;
     }
@@ -465,13 +534,34 @@ class OptionSet is export {
         return $id;
     }
 
+    #| some method for parser
     method check(::?CLASS::D:) {
+        #| check the groups
         for (@!radio, @!multi) -> @groups {
             for @groups -> $group {
                 $group.check();
             }
         }
+        #| check the options
         .check unless .optional for @!options;
+    }
+
+    method check-cmd(::?CLASS::D:) {
+        my @front-pos;
+
+        for %!pos {
+            @front-pos.push(.value) if .value.match-index(MAXPOSSUPPORT, 0);
+        }
+
+        my $found-cmd = [||] %!cmd.values>>.success;
+
+        unless $found-cmd {
+            if %!cmd.elems > 0 && (+@front-pos == 0 || !([||] @front-pos>>.success)) {
+                &ga-non-option-error("Need cmd { +@front-pos > 0 ?? "or front pos :" !! ":" } [" ~ (
+                    %!cmd.values>>.usage.join(" ")
+                ) ~ ']');
+            }
+        }
     }
 
     method set-parser(Supply:D $parser) {
@@ -482,17 +572,30 @@ class OptionSet is export {
         self;
     }
 
-    method clone(*%_) {
-        nextwith(
+    method reset-owner() {
+        .set-owner(self) for @!options;
+        .set-owner(self) for @!radio;
+        .set-owner(self) for @!multi;
+        .value.set-owner(self) for %!main;
+        .value.set-owner(self) for %!pos;
+        .value.set-owner(self) for %!cmd;
+        .set-owner(self) for $!types;
+    }
+
+    method clone() {
+        my $obj = callwith(
             options => %_<options> // @!options.clone,
             radio   => %_<radio> // @!radio.clone,
             multi   => %_<multi> // @!multi.clone,
             main    => %_<main> // %!main.clone,
             pos     => %_<pos> // %!pos.clone,
             cmd     => %_<cmd> // %!cmd.clone,
-            types   => %_<types> // $!types,
+            types   => %_<types> // $!types.clone,
             counter => %_<counter> // $!counter,
             |%_,
         );
+        #| need reset the optionset for everything
+        $obj.reset-owner();
+        $obj;
     }
 }
