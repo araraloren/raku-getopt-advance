@@ -92,8 +92,7 @@ my class Actions::Option {
 	}
 }
 
-class TypesManager is export {
-    has $.owner; #| we need hold a OptionSet Reference
+class TypesManager does RefOptionSet is export {
     has %.types handles <AT-KEY keys values>;
 
     method has(Str $name --> Bool) {
@@ -118,8 +117,6 @@ class TypesManager is export {
         self;
     }
 
-    method set-owner($!owner) { }
-
     sub parseOptString(Str $str) {
         my $action = Actions::Option.new;
         unless Grammar::Option.parse($str, :actions($action)) {
@@ -137,7 +134,7 @@ class TypesManager is export {
         my %realargs;
 
         unless self.has($setting.opt-type) {
-           die "Invalid option type: {$setting.opt-type}"; 
+           die "Invalid option type: {$setting.opt-type}";
         }
 
         if %args<owner>:exists {
@@ -153,11 +150,18 @@ class TypesManager is export {
         %realargs<optional>     = %args<optional> // $setting.opt-optional;
         %realargs<deactivate>   = %args<deactivate> // $setting.opt-deactivate;
         %args< short long optional deactivate >:delete;
-        Debug::debug("Create type {$str} with {%realargs.keys}");
+        Debug::debug("Construct <{$str}> with `{%realargs.map({ "{.key}={.value // ""}" })}`");
         $option = self.type($setting.opt-type).new(
             |%realargs,
             |%args,
         );
         return $option;
     }
+
+	method clone() {
+		nextwith(
+			types => %_<types> // %!types.clone,
+			|%_
+		);
+	}
 }
