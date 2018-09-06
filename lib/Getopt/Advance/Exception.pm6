@@ -24,7 +24,7 @@ sub ga-option-error(Str $msg) is export {
 class X::GA::GroupError is X::GA::Exception { }
 
 sub ga-group-error(Str $msg) is export {
-    X::GA::GroupValueInvalid
+    X::GA::GroupError
     .new(message => $msg)
     .throw;
 }
