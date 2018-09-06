@@ -36,7 +36,7 @@ multi sub getopt(
     :@order  = < long xopt short ziparg comb >) is export {
     my $parser-gen = Parser.new(:@args, :$strict, :$autohv, :$bsd-style, :@styles, :@order);
 
-    loop (my $index = 0; $index <= +@optsets; $index += 1) {
+    loop (my $index = 0; $index < +@optsets; $index += 1) {
 
         my $optset := @optsets[$index];
 
@@ -44,7 +44,7 @@ multi sub getopt(
             my $parser = share-supply($parser-gen.($optset));
 
             say $optset.get-cmd>>.gist;
-            Debug::debug("In matching OptionSet = {$optset.get-cmd>>.gist}");
+            Debug::debug("In matching args => {@args.join('|')}");
 
             given $parser {
                 $optset.set-parser(.Supply);
@@ -160,10 +160,10 @@ class OptionSet is export {
                 return $_;
             }
         }
-        return Option;
+        return Any;
     }
 
-    multi method get(::?CLASS::D: Str:D $name, Str:D $type = WhateverType --> Option) {
+    multi method get(::?CLASS::D: Str:D $name, Str:D $type = WhateverType) {
         if %!cache{$name}{$type}:exists {
             return %!cache{$name}{$type};
         }
@@ -232,7 +232,7 @@ class OptionSet is export {
     }
 
     multi method AT-KEY(::?CLASS::D: Str:D @key) {
-        return [ self.get($_) for @key ];
+        return [ self.get($_).?value for @key ];
     }
 
     multi method set-value(::?CLASS::D: Str:D $name, $value, :$callback = True --> ::?CLASS)  {
@@ -354,13 +354,9 @@ class OptionSet is export {
         self;
     }
 
-    method radio() { @!radio; }
-
-    method multi() { @!multi; }
-
     #| methods for non-options
 
-    multi method get(::?CLASS::D: Int:D $id --> NonOption) {
+    multi method get(::?CLASS::D: Int:D $id) {
         for %!main, %!pos, %!cmd -> $nos {
             if $nos{$id}:exists {
                 return $nos{$id};
@@ -398,7 +394,7 @@ class OptionSet is export {
         self.has($id);
     }
 
-    multi method AT-KEY(::?CLASS::D: Int:D $id --> NonOption) {
+    multi method AT-KEY(::?CLASS::D: Int:D $id) {
         self.get($id);
     }
 
@@ -406,11 +402,11 @@ class OptionSet is export {
         return %!main;
     }
 
-    multi method get-main(::?CLASS::D: Int:D $id --> NonOption) {
+    multi method get-main(::?CLASS::D: Int:D $id) {
         return %!main{$id};
     }
 
-    multi method get-main(::?CLASS::D: Str:D $name --> NonOption) {
+    multi method get-main(::?CLASS::D: Str:D $name) {
         for %!main.values {
             return $_ if .match-name($name);
         }
@@ -420,11 +416,11 @@ class OptionSet is export {
         %!cmd;
     }
 
-    multi method get-cmd(::?CLASS::D: Int:D $id --> NonOption) {
+    multi method get-cmd(::?CLASS::D: Int:D $id) {
         %!cmd{$id};
     }
 
-    multi method get-cmd(::?CLASS::D: Str:D $name --> NonOption) {
+    multi method get-cmd(::?CLASS::D: Str:D $name) {
         for %!cmd.values {
             return $_ if .match-name($name);
         }
@@ -434,11 +430,11 @@ class OptionSet is export {
         %!pos;
     }
 
-    multi method get-pos(::?CLASS::D: Int $id --> NonOption) {
+    multi method get-pos(::?CLASS::D: Int $id) {
         %!pos{$id};
     }
 
-    multi method get-pos(::?CLASS::D: Str:D $name, $index --> NonOption) {
+    multi method get-pos(::?CLASS::D: Str:D $name, $index) {
         for %!pos.values {
             if .match-name($name) && .match-index(MAXPOSSUPPORT, $index) {
                 return $_;
@@ -564,7 +560,7 @@ class OptionSet is export {
         }
     }
 
-    method set-parser(Supply:D $parser) {
+    method set-parser(::?CLASS::D: Supply:D $parser) {
         for (%!main, %!cmd, %!pos) -> %need-parser {
             .value.set-parser($parser) for %need-parser;
         }
@@ -572,7 +568,7 @@ class OptionSet is export {
         self;
     }
 
-    method reset-owner() {
+    method reset-owner(::?CLASS::D:) {
         .set-owner(self) for @!options;
         .set-owner(self) for @!radio;
         .set-owner(self) for @!multi;
@@ -580,6 +576,23 @@ class OptionSet is export {
         .value.set-owner(self) for %!pos;
         .value.set-owner(self) for %!cmd;
         .set-owner(self) for $!types;
+    }
+
+    method merge(::?CLASS::D: ::?CLASS:D $other --> ::?CLASS) {
+        sub merge-no(\current, %new) {
+            for %new -> $no {
+                current{$!counter++} = $no.value;
+            }
+        }
+        given $other {
+            @!options.append(.values);
+            @!radio.append(.radio);
+            @!multi.append(.multi);
+            merge-no(%!main, $other.main);
+            merge-no(%!cmd, $other.cmd);
+            merge-no(%!pos, $other.pos);
+        }
+        self;
     }
 
     method clone() {
