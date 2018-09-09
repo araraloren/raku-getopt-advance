@@ -9,7 +9,7 @@ use Getopt::Advance::Exception:api<2>;
     $optset.insert-pos("arthmetic", :front, sub ($, $oparg) {
         given $oparg.value {
             when /plus|multi/ {
-                ok True, "ok";
+                ok True, "get first operator ok";
             }
 
             default {

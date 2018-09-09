@@ -47,7 +47,7 @@ $osa.insert-main(sub ($os, @_) { $os });
 $osa.insert-pos(
     "want-digit",
     0,
-    sub ($_) { say "CALL ME"; False }
+    sub ($_) { False }
 );
 
 my OptionSet $osb = $osa.clone();

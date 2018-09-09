@@ -11,26 +11,21 @@ constant FLOAT    = "float";
 constant ARRAY    = "array";
 constant HASH     = "hash";
 
-constant QUITBLOCK = sub (\ex) { };
+class OptionInfo does Info {
+    has $.optname;
+    has &.check;
+    has $.opt;
 
-role Option { ... }
+    method name() { $!optname; }
+    
+    method check(Message $msg) {
+        &!check($msg.style);
+    }
 
-multi sub tapTheParser(Mu:U \parser, Option $option) { }
-
-multi sub tapTheParser(Supply:D \parser, Option $option) {
-    parser.tap(
-        #| should use anon sub, point block are transparent to "return"
-        sub ($v) {
-            if $v.style >= Style::XOPT && $v.style <= Style::BSD {
-                $v.process($option);
-            }
-        },
-        #| should have a quit named argument, or will not throw exception to outter
-        quit => QUITBLOCK,
-    );
+    method process($data) { $data.process($!opt); }                
 }
 
-role Option does RefOptionSet {
+role Option does RefOptionSet does Subscriber {
     has $.long              = "";
     has $.short             = "";
     has &.callback          = Callable;
@@ -91,10 +86,6 @@ role Option does RefOptionSet {
     method set-annotation(Str:D $!annotation) { }
 
     method set-default-value($!default-value) { }
-
-    method set-parser(Supply:D $parser) {
-        &tapTheParser($parser, self);
-    }
 
     method has-value( --> Bool) {
         $!value.defined;
@@ -213,6 +204,20 @@ class Option::Boolean does Option {
         self.Option::set-value($value.so, :$callback);
     }
 
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            OptionInfo.new(
+                optname  => self.usage(),
+                check   => sub (\style) {
+                    set(
+                        Style::XOPT, Style::LONG, Style::SHORT, Style::ZIPARG, Style::COMB, Style::BSD
+                    ){style};
+                },
+                opt => self,
+            )
+        );
+    }
+
     method type() {
         BOOLEAN;
     }
@@ -253,6 +258,20 @@ class Option::Integer does Option {
         }
     }
 
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            OptionInfo.new(
+                optname  => self.usage,
+                check   => sub (\style) {
+                    set(
+                        Style::XOPT, Style::LONG, Style::SHORT, Style::ZIPARG, Style::COMB
+                    ){style};
+                },
+                opt => self,
+            )
+        );
+    }
+
     method type() {
         INTEGER;
     }
@@ -280,6 +299,20 @@ class Option::Float does Option {
         }
     }
 
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            OptionInfo.new(
+                optname  => self.usage,
+                check   => sub (\style) {
+                    set(
+                        Style::XOPT, Style::LONG, Style::SHORT, Style::ZIPARG, Style::COMB
+                    ){style};
+                },
+                opt => self,
+            )
+        );
+    }
+
     method type() {
         FLOAT;
     }
@@ -305,6 +338,20 @@ class Option::String does Option {
         } else {
             &ga-invalid-value("{self.usage()}: option need a string.");
         }
+    }
+
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            OptionInfo.new(
+                optname  => self.usage,
+                check   => sub (\style) {
+                    set(
+                        Style::XOPT, Style::LONG, Style::SHORT, Style::ZIPARG, Style::COMB
+                    ){style};
+                },
+                opt => self,
+            )
+        );
     }
 
     method type() {
@@ -335,6 +382,20 @@ class Option::Array does Option {
         my @array = $!value ?? @$!value !! Array.new;
         @array.push($value);
         self.Option::set-value(@array, :$callback);
+    }
+
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            OptionInfo.new(
+                optname  => self.usage,
+                check   => sub (\style) {
+                    set(
+                        Style::XOPT, Style::LONG, Style::SHORT, Style::ZIPARG, Style::COMB
+                    ){style};
+                },
+                opt => self,
+            )
+        );
     }
 
     method type() {
@@ -373,6 +434,20 @@ class Option::Hash does Option {
             &ga-invalid-value("{self.usage()}: option need an Pair.");
         }
         self.Option::set-value(%hash, :$callback);
+    }
+
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            OptionInfo.new(
+                optname  => self.usage,
+                check   => sub (\style) {
+                    set(
+                        Style::XOPT, Style::LONG, Style::SHORT, Style::ZIPARG, Style::COMB
+                    ){style};
+                },
+                opt => self,
+            )
+        );
     }
 
     my grammar Pair::Grammar {

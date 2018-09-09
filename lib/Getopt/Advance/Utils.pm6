@@ -8,153 +8,78 @@ class Prefix is export {
 }
 
 class Style is export {
-    enum < XOPT LONG SHORT ZIPARG COMB BSD MAIN CMD POS DEFAULT >;
+    enum < XOPT LONG SHORT ZIPARG COMB BSD MAIN CMD POS WHATEVERPOS DEFAULT >;
 }
+
+#| register info
+role Info { ... }
+#| publish message
+role Message { ... }
+#| publisher
+role Publisher { ... }
+#| subscriber
+role Subscriber { ... }
+
+role ContextProcsser { ... }
+
+role RefOptionSet { ... }
 
 class Debug { ... }
-class MatchContext { ... }
 
-role RefOptionSet is export {
-    has $.owner;
+role Info is export {
 
-    method set-owner($!owner) { }
+    method check(Message $msg --> Bool) { ... }
 
-    method owner() { $!owner; }
+    method process( $data ) { ... }
 }
 
-role Context is export {
-    has $.success;
+role Message is export {
 
-    method TWEAK() {
-        $!success = False;
-    }
+    method id(--> Int) { ... }
 
-    method mark-matched() {
-        $!success = True;
-    }
-
-    method match(MatchContext , $o) { ... }
-
-    method set(MatchContext , $o) { ... }
-
-    method gist() { ... }
+    method data() { ... }
 }
 
-class MatchContext is export {
-    class Option does Context {
-        has $.prefix;
-        has $.name;
-        has $.hasarg;
-        has &.getarg;
-
-        method match(MatchContext $mc, $o) {
-            my $name-r = do given $!prefix {
-                    when Prefix::LONG {
-                        $o.long eq $!name;
-                    }
-                    when Prefix::SHORT {
-                        $o.short eq $!name;
-                    }
-                    when Prefix::NULL {
-                        $o.long eq $!name || $o.short eq $!name
-                    }
-                    default {
-                        False;
-                    }
-                };
-            my $value-r = False;
-
-            if $o.need-argument == $!hasarg {
-                Debug::debug("    - Match value [{&!getarg()}] for [{$o.usage}]");
-                $value-r = &!getarg.defined ?? $o.match-value(&!getarg()) !! True;
+role Publisher is export { 
+    has Info @.infos;
+    
+    method publish(Message $msg) {
+        for @!infos -> $info {
+            if $info.check($msg) {
+                $info.process($msg.data);
             }
-            return $name-r && $value-r;
         }
-
-        method set(MatchContext $mc, $o) {
-            self.mark-matched();
-            $o.set-value(&!getarg(), :callback);
-            Debug::debug("    - OK! Set value {&!getarg()} for [{$o.usage}], shift args: {$o.need-argument}");
-        }
-
-        method gist() { "\{{$!prefix}, {$!name}{$!hasarg ?? ":" !! ""}\}" }
     }
 
-    class NonOption does Context {
-        has $.argument;
-
-        method match(MatchContext $mc, $no) {
-            my $style-r = $no.match-style($mc.style);
-            my $name-r = do given $mc.style {
-                when Style::MAIN {
-                    $no.match-name("");
-                }
-                when Style::CMD {
-                    $no.match-name(@($!argument)[0].Str);
-                }
-                default {
-                    $no.match-name($!argument.Str);
-                }
-            };
-            my $index-r = do given $mc.style {
-                when Style::MAIN {
-                    $no.match-index(MAXPOSSUPPORT, -1);
-                }
-                when Style::CMD {
-                    $no.match-index(MAXPOSSUPPORT, 0);
-                }
-                default {
-                    $no.match-index(MAXPOSSUPPORT, $!argument.index);
-                }
-            };
-            my $check-r = $style-r && $name-r && $index-r;
-            my $call-r = $check-r && do {
-                given $mc.style {
-                    when Style::MAIN {
-                        Debug::debug("    - Try call {$mc.style} sub.");
-                        $no.($no.owner, @$!argument);
-                    }
-                    when Style::CMD {
-                        my @realargs = @($!argument).[1..*-1];
-                        Debug::debug("    - Try call {$mc.style} sub.");
-                        $no.($no.owner, @realargs);
-                    }
-                    default {
-                        Debug::debug("    - Try call {$mc.style} sub.");
-                        $no.($no.owner, $!argument);
-                    }
-                }
-            };
-            Debug::debug("    - Match " ~ ($call-r ?? "Okay!" !! "Failed!"));
-            return $call-r;
-        }
-
-        method set(MatchContext $mc, $no) { }
-
-        method gist() { "\{{self.argument.Str}\@{self.argument.?index}\}" }
+    method subscribe(Info $info) {
+        @!infos.push($info);
     }
+}
 
-    class MainOrCmd is NonOption {
-        method gist() {
-            my $gist = "\{";
-            $gist ~= [ "{.Str}\@{.index}" for @(self.argument) ].join(",");
-            $gist ~ '}';
-        };
-    }
+role Subscriber is export {
+    method subscribe(Publisher $p) { ... }
+}
 
+role ContextProcesser does Message is export {
     has $.style;
     has @.contexts;
     has $.handler;
+    has $.id;
+
+    method id() { $!id; }
+
+    method data() { self; }
 
     method matched() {
         $!handler.success;
     }
 
     method process($o) {
+        Debug::debug("== message {$!id}: [{self.style}|{self.contexts>>.gist.join(" + ")}]");
         if $!handler.success {
-            Debug::debug("- Skip  [{self.style}|{self.contexts>>.gist.join(" + ")}]");
+            Debug::debug("- Skip");
         } else {
-            Debug::debug("- Match [{self.style}|{self.contexts>>.gist.join(" + ")}] <-> {$o.usage}");
+            Debug::debug("- Match <-> {$o.usage}");
             my $matched = True;
             for @!contexts -> $context {
                 if ! $context.success {
@@ -162,7 +87,6 @@ class MatchContext is export {
                     if $context.match(self, $o) {
                         $context.set(self, $o);
                     } else {
-                        Debug::debug("    - Falied!");
                         $matched = False;
                     }
                 }
@@ -175,7 +99,16 @@ class MatchContext is export {
                 $!handler.set-success();
             }
         }
+        Debug::debug("- process end {$!id}");
     }
+}
+
+role RefOptionSet is export {
+    has $.owner;
+
+    method set-owner($!owner) { }
+
+    method owner() { $!owner; }
 }
 
 class Debug is export {
@@ -184,14 +117,19 @@ class Debug is export {
     subset LEVEL of Int where { $_ >= DEBUG.Int && $_ <= ERROR.Int };
 
     our $g-level = DEBUG;
+    our $g-stderr = $*ERR;
 
     our sub setLevel(LEVEL $level) {
         $g-level = $level;
     }
 
+    our sub setStderr(IO::Handle $handle) {
+        $g-stderr = $handle;
+    }
+
     our sub print(Str $log, LEVEL $level = $g-level) {
         if $level >= $g-level {
-            note sprintf "[%-5s]: %s", $level, $log;
+            $*ERR.print(sprintf "[%-5s]: %s\n", $level, $log);
         }
     }
 
@@ -214,27 +152,4 @@ class Debug is export {
     our sub die(Str $log) {
         die $log;
     }
-}
-
-sub share-supply(Supply $s) is export {
-    my $p = Promise.new;
-    my $d = supply {
-        whenever $p {
-            whenever $s {
-                .emit;
-            }
-        }
-    } .share;
-    return class :: {
-        has $.p;
-        has $.d;
-
-        method Supply {
-            $!d;
-        }
-
-        method keep() {
-            $!p.keep(1);
-        }
-    }.new(p => $p, d => $d);
 }

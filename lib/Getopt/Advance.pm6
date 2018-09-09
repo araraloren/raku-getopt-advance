@@ -32,43 +32,36 @@ multi sub getopt(
     :$autohv = False,
     :$version,
     :$bsd-style = False,
+    :$grammar = OptionGrammar,
+    :$actions = OptionActions,
     :@styles = [ :long, :xopt, :short, :ziparg, :comb ],
     :@order  = < long xopt short ziparg comb >) is export {
-    my $parser-gen = Parser.new(:@args, :$strict, :$autohv, :$bsd-style, :@styles, :@order);
+
+    my $parserobj = Parser.new(
+        :@args,
+        :$strict,
+        :$autohv,
+        :$bsd-style,
+        :@styles,
+        :@order,
+        optgrammar => $grammar,
+        optactions => $actions,
+    );
 
     loop (my $index = 0; $index < +@optsets; $index += 1) {
 
         my $optset := @optsets[$index];
 
         try {
-            my $parser = share-supply($parser-gen.($optset));
-
-            Debug::debug("In matching args => {@args.join('|')}");
-
-            given $parser {
-                $optset.set-parser(.Supply);
-
-                react {
-                    whenever $parser.Supply {
-                        Debug::debug("Got {$_.perl} in getopt");
-                        QUIT { say "+++++++++++++ QUIT"; }
-                        LAST {
-                            say "IN LAST";
-                            say 'parser args => ', @args;
-                        }
-                    }
-                    $parser.keep();
-                }
-
-                $optset.check();
-            }
-
-            say "WILL RETURN";
+            $parserobj.init(@args);
+            $optset.set-parser($parserobj);
+            $parserobj.($optset);
+            $optset.check();
 
             return ReturnValue.new(
                 optionset   => $optset,
-                noa         => $parser-gen.noa,
-                parser      => $parser-gen,
+                noa         => $parserobj.noa,
+                parser      => $parserobj,
                 return-value=> do {
                     my %rvs;
                     for %($optset.get-main()) {
@@ -83,7 +76,7 @@ multi sub getopt(
                      X::GA::OptionError |
                      X::GA::GroupError  |
                      X::GA::NonOptionError {
-                         say "Will try next OptionSet.";
+                    say "Will try next OptionSet.";
                     Debug::debug("Will try next OptionSet.");
                 }
 
@@ -580,11 +573,13 @@ class OptionSet is export {
         }
     }
 
-    method set-parser(::?CLASS::D: Supply:D $parser) {
+    method set-parser(::?CLASS::D: Publisher $parser) {
         for (%!main, %!cmd, %!pos) -> %need-parser {
-            .value.set-parser($parser) for %need-parser;
+            .value.subscribe($parser) for %need-parser;
         }
-        .set-parser($parser) for @!options;
+        for @!options {
+            .subscribe($parser);
+        }
         self;
     }
 

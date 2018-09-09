@@ -4,38 +4,28 @@ use Getopt::Advance::Utils:api<2>;
 
 unit module Getopt::Advance::NonOption:api<2>;
 
-constant QUITBLOCK = sub (\ex) { };
+class NonOptionInfo does Info {
+    has $.optname;
+    has &.check;
+    has $.opt;
 
-role NonOption { ... }
+    method name() { $!optname; }
+    
+    method check(Message $msg) {
+        &!check($msg.style);
+    }
 
-multi sub tapTheParser(Mu:U \parser, NonOption $no) { }
-
-multi sub tapTheParser(Supply:D \parser, NonOption $no) {
-    parser.tap(
-        #| should use anon sub, point block are transparent to "return"
-        sub ($v) {
-            if $v.style >= Style::MAIN && $v.style <= Style::POS {
-                $v.process($no);
-            }
-        },
-        #| should have a quit named argument, or will not throw exception to outter
-        quit => QUITBLOCK,
-    );
+    method process($data) { $data.process($!opt); }                
 }
 
-
-role NonOption does RefOptionSet {
+role NonOption does RefOptionSet does Subscriber {
     has Str  $.name;
-    has Int  $.index;
     has Any  $.value; #| for main is return value, for pos is noa, for cmd is nothing
     has Supplier $.supplier = Supplier.new;
+    has $.index;
     has &!callback;
 
     method set-callback(&!callback) { }
-
-    method set-parser(Supply:D $parser) {
-        &tapTheParser($parser, self);
-    }
 
     #| match method
     method match-index(Int $total, Int $index --> Bool) { ... }
@@ -102,6 +92,18 @@ class NonOption::Main does NonOption {
         self.NonOption::set-callback(&callback);
     }
 
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            NonOptionInfo.new(
+                optname  => self.usage(),
+                check   => sub (\style) {
+                    style eq Style::MAIN;
+                },
+                opt => self,
+            )
+        );
+    }
+
     method match-index(Int $total, Int $index --> True) { }
 
     method match-name(Str $name --> True) {}
@@ -131,6 +133,18 @@ class NonOption::Cmd does NonOption {
         &callback where .signature ~~ :($, @) | :(@) | :()
     ) {
         &!callback = &callback;
+    }
+
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            NonOptionInfo.new(
+                optname  => self.usage(),
+                check   => sub (\style) {
+                    style eq Style::CMD;
+                },
+                opt => self,
+            )
+        );
     }
 
     method match-index(Int $total, Int $index --> Bool) {
@@ -168,6 +182,18 @@ class NonOption::Pos does NonOption {
         &callback where .signature ~~ :($, $) | :($) | :()
     ) {
         &!callback = &callback;
+    }
+
+    method subscribe(Publisher $p) {
+        $p.subscribe(
+            NonOptionInfo.new(
+                optname  => self.usage(),
+                check   => sub (\style) {
+                    style eq (self.index ~~ WhateverCode ?? Style::WHATEVERPOS !! Style::POS);
+                },
+                opt => self,
+            )
+        );
     }
 
     method match-index(Int $total, $index) {
