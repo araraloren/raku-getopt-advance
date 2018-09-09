@@ -1,7 +1,7 @@
 
 use Test;
-use Getopt::Advance;
-use Getopt::Advance::Exception;
+use Getopt::Advance:api<2>;
+use Getopt::Advance::Exception:api<2>;
 
 {
     my OptionSet $optset .= new;
@@ -16,6 +16,7 @@ use Getopt::Advance::Exception;
                 &ga-try-next("not recongnize operator");
             }
         }
+        $oparg.value; # the value of pos is callback return value currently
     });
 
     lives-ok {
@@ -33,6 +34,7 @@ use Getopt::Advance::Exception;
     lives-ok {
         getopt([], $optset);
     }, "no argument ok";
+
 
     dies-ok {
         getopt(<add 1 2 3 >, $optset);

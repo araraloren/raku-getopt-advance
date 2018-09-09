@@ -2,6 +2,7 @@
 use Test;
 use Getopt::Advance::Types:api<2>;
 use Getopt::Advance::Option:api<2>;
+use Getopt::Advance::NonOption:api<2>;
 
 my $types = TypesManager.new;
 
@@ -10,7 +11,10 @@ $types.registe('b', Option::Boolean)
       .registe('s', Option::String)
       .registe('a', Option::Array)
       .registe('h', Option::Hash)
-      .registe('f', Option::Float);
+      .registe('f', Option::Float)
+      .registe('c', NonOption::Cmd)
+      .registe('p', NonOption::Pos)
+      .registe('m', NonOption::Main);
 
 # short option
 for < b i s a h f> -> $type {
@@ -353,6 +357,16 @@ for < b i s a h f> Z, (True, 42, "earth", [1, 2, 3], %{2 => 3}, 0.10) -> ($type,
         dies-ok {
             my $opt = $types.create("$shoptname|$lgoptname={$type}!/");
         }, "not support deactivate style except boolean option.";
+    }
+}
+
+{
+    my $name = 'command';
+
+    for < m p c > -> $type {
+        my $no = $types.create("{$name}={$type}", callback => sub () {});
+
+        is $no.name, $name, 'create a non-option ' ~ $no.type ~ ' named ' ~ $name;
     }
 }
 

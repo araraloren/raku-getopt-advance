@@ -4,7 +4,7 @@ use Getopt::Advance::Utils:api<2>;
 
 unit module Getopt::Advance::NonOption:api<2>;
 
-constant QUITBLOCK = sub (\ex) { };
+constant QUITBLOCK = sub (\ex) { ex.throw; };
 
 role NonOption { ... }
 
@@ -14,8 +14,16 @@ multi sub tapTheParser(Supply:D \parser, NonOption $no) {
     parser.tap(
         #| should use anon sub, point block are transparent to "return"
         sub ($v) {
-            if $v.style >= Style::MAIN && $v.style <= Style::POS {
-                $v.process($no);
+            try {
+                if $v.style >= Style::MAIN && $v.style <= Style::POS {
+                    $v.process($no);
+                }
+                CATCH {
+                    default {
+                        say "GET %%%%";
+                        .throw;
+                    }
+                }
             }
         },
         #| should have a quit named argument, or will not throw exception to outter
@@ -28,6 +36,7 @@ role NonOption does RefOptionSet {
     has Str  $.name;
     has Int  $.index;
     has Any  $.value; #| for main is return value, for pos is noa, for cmd is nothing
+    has Supplier $.supplier = Supplier.new;
     has &!callback;
 
     method set-callback(&!callback) { }
@@ -44,6 +53,8 @@ role NonOption does RefOptionSet {
     method match-style($style --> Bool) { ... }
 
     #| others
+    method Supply { $!supplier.Supply; }
+
     method success() { so $!value; }
 
     method reset-success() { $!value = Any; }
@@ -78,6 +89,7 @@ role NonOption does RefOptionSet {
             index => %_<index> // $!index.clone,
             name  => %_<name>  // $!name.clone,
             callback => %_<callback> // &!callback.clone,
+            supplier    => Supplier.new,
             |%_
         );
     }
@@ -85,6 +97,9 @@ role NonOption does RefOptionSet {
 
 class NonOption::Main does NonOption {
     submethod TWEAK(:&callback) {
+        unless &callback.defined {
+            &ga-raise-error('You should provide a &callback to NonOption');
+        }
         $!index = -1;
         self.set-callback(&callback);
     }
@@ -103,6 +118,7 @@ class NonOption::Main does NonOption {
 
     method CALL-ME(|c) {
         $!value = self.NonOption::CALL-ME(|c);
+        $!supplier.emit([self.owner(), self, c.[* - 1]]);
     }
 
     method type(--> "main") { }
@@ -112,6 +128,9 @@ class NonOption::Main does NonOption {
 
 class NonOption::Cmd does NonOption {
     submethod TWEAK(:&callback) {
+        unless &callback.defined {
+            &ga-raise-error('You should provide a &callback to NonOption');
+        }
         $!index = 0;
         self.set-callback(&callback);
     }
@@ -134,6 +153,7 @@ class NonOption::Cmd does NonOption {
 
     method CALL-ME(|c) {
         $!value = so self.NonOption::CALL-ME(|c);
+        $!supplier.emit([self.owner(), self, c.[* - 1]]);
     }
 
     method type( --> "cmd") { }
@@ -143,6 +163,9 @@ class NonOption::Cmd does NonOption {
 
 class NonOption::Pos does NonOption {
     submethod TWEAK(:&callback, :$index) {
+        unless &callback.defined {
+            &ga-raise-error('You should provide a &callback to NonOption');
+        }
         self.set-callback(&callback);
         if $index ~~ Int && $index < 0 {
             &ga-raise-error("Index should be positive number!");
@@ -180,6 +203,7 @@ class NonOption::Pos does NonOption {
 				$ret = &!callback();
 			}
         }
+        $!supplier.emit([self.owner(), self, c.[* - 1]]);
         return ($!value = $ret);
     }
 

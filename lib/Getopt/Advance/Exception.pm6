@@ -8,15 +8,17 @@ class X::GA::Exception is Exception {
 class X::GA::ParseError is X::GA::Exception { }
 
 sub ga-parse-error(Str $msg) is export {
-    X::GA::ParseFailed
+    X::GA::ParseError
     .new(message => $msg)
     .throw;
 }
 
+constant &ga-try-next is export = &ga-parse-error;
+
 class X::GA::OptionError is X::GA::Exception { }
 
 sub ga-option-error(Str $msg) is export {
-    X::GA::OptionInvalid
+    X::GA::OptionError
     .new(message => $msg)
     .throw;
 }

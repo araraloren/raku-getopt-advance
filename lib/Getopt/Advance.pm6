@@ -43,7 +43,6 @@ multi sub getopt(
         try {
             my $parser = share-supply($parser-gen.($optset));
 
-            say $optset.get-cmd>>.gist;
             Debug::debug("In matching args => {@args.join('|')}");
 
             given $parser {
@@ -52,7 +51,7 @@ multi sub getopt(
                 react {
                     whenever $parser.Supply {
                         Debug::debug("Got {$_.perl} in getopt");
-                        QUIT { }
+                        QUIT { say "+++++++++++++ QUIT"; }
                         LAST {
                             say "IN LAST";
                             say 'parser args => ', @args;
@@ -97,6 +96,8 @@ multi sub getopt(
             }
         }
     }
+
+    say "IN OUT RETURN";
 
     return ReturnValue;
 }
@@ -177,6 +178,11 @@ class OptionSet is export {
         return self!make-cache($name, $type).defined;
     }
 
+    multi method Supply(::?CLASS::D: Str:D $name, Str:D $type = WhateverType --> Supply) {
+        self.get($name, $type) andthen return .Supply;
+        Supply;
+    }
+
     #| remove the option, not the option name, different from old code, now it is has correctly behavior
     multi method remove(::?CLASS::D: Str:D $name, Str:D $type = WhateverType --> Bool) {
         my Int $find = -1;
@@ -192,9 +198,7 @@ class OptionSet is export {
             }
         }
 
-        if $find == -1 {
-            return False;
-        }
+        return False if $find == -1;
 
         if %!cache{$name}{$type}:exists {
             %!cache{$name}{$type}:delete;
@@ -227,8 +231,9 @@ class OptionSet is export {
     }
 
     #| this return the value of option rather than the option itself
-    multi method AT-KEY(::?CLASS::D: Str:D \key ) {
+    multi method AT-KEY(::?CLASS::D: Str:D \key) {
         self.get(key) andthen return .value;
+        Any;
     }
 
     multi method AT-KEY(::?CLASS::D: Str:D @key) {
@@ -373,6 +378,11 @@ class OptionSet is export {
         }
     }
 
+    multi method Supply(::?CLASS::D: Int:D $id --> Supply) {
+        self.get($id) andthen return .Supply;
+        Supply;
+    }
+
     multi method reset(::?CLASS::D: Int:D $id) {
         for %!main, %!pos, %!cmd -> $nos {
             if $nos{$id}:exists {
@@ -412,6 +422,11 @@ class OptionSet is export {
         }
     }
 
+    multi method Supply(::?CLASS::D: Int:D $id, :$main! --> Supply) {
+        self.get-main($id) andthen return .Supply;
+        Supply;
+    }
+
     multi method get-cmd(::?CLASS::D:) {
         %!cmd;
     }
@@ -424,6 +439,11 @@ class OptionSet is export {
         for %!cmd.values {
             return $_ if .match-name($name);
         }
+    }
+
+    multi method Supply(::?CLASS::D: Int:D $id, :$cmd! --> Supply) {
+        self.get-cmd($id) andthen return .Supply;
+        Supply;
     }
 
     multi method get-pos(::?CLASS::D:) {
@@ -440,6 +460,11 @@ class OptionSet is export {
                 return $_;
             }
         }
+    }
+
+    multi method Supply(::?CLASS::D: Int:D $id, :$pos! --> Supply) {
+        self.get-pos($id) andthen return .Supply;
+        Supply;
     }
 
     multi method reset-main(::?CLASS::D: Int $id) {
@@ -474,7 +499,9 @@ class OptionSet is export {
         }
     }
 
-    multi method insert-main(::?CLASS::D: &callback --> Int ) {
+    my constant &true-block = sub () { True; };
+
+    multi method insert-main(::?CLASS::D: &callback = &true-block --> Int ) {
         my $id = $!counter++;
         %!main.push(
             $id => self.create("main=m", :&callback)
@@ -482,7 +509,7 @@ class OptionSet is export {
         return $id;
     }
 
-    multi method insert-main(::?CLASS::D: Str:D $name, &callback --> Int ) {
+    multi method insert-main(::?CLASS::D: Str:D $name, &callback = &true-block --> Int ) {
         my $id = $!counter++;
         %!main.push(
             $id => self.create("{$name}=m", :&callback)
@@ -490,15 +517,7 @@ class OptionSet is export {
         return $id;
     }
 
-    multi method insert-cmd(::?CLASS::D: Str:D $name --> Int ) {
-        my $id = $!counter++;
-        %!cmd.push(
-            $id => self.create("{$name}=c", callback => sub () { True })
-        );
-        return $id;
-    }
-
-    multi method insert-cmd(::?CLASS::D: Str:D $name, &callback --> Int ) {
+    method insert-cmd(::?CLASS::D: Str:D $name, &callback = &true-block --> Int ) {
         my $id = $!counter++;
         %!cmd.push(
             $id => self.create("{$name}=c", :&callback)
@@ -506,7 +525,7 @@ class OptionSet is export {
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, &callback, :$front! --> Int ) {
+    multi method insert-pos(::?CLASS::D: Str:D $name, &callback = &true-block, :$front! --> Int ) {
         my $id = $!counter++;
         %!pos.push(
             $id => self.create("{$name}=p", :&callback, index => 0)
@@ -514,7 +533,7 @@ class OptionSet is export {
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, &callback, :$last! --> Int ) {
+    multi method insert-pos(::?CLASS::D: Str:D $name, &callback = &true-block, :$last! --> Int ) {
         my $id = $!counter++;
         %!pos.push(
             $id => self.create("{$name}=p", :&callback, index => * - 1)
@@ -522,7 +541,7 @@ class OptionSet is export {
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, $index where Int:D | WhateverCode , &callback --> Int ) {
+    multi method insert-pos(::?CLASS::D: Str:D $name, $index where Int:D | WhateverCode , &callback = &true-block --> Int ) {
         my $id = $!counter++;
         %!pos.push(
             $id => self.create("{$name}=p", :&callback, :$index)

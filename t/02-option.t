@@ -3,7 +3,7 @@ use Test;
 use Getopt::Advance:api<2>;
 use Getopt::Advance::Option:api<2>;
 
-plan 24;
+plan 27;
 
 my OptionSet $optset .= new;
 
@@ -41,6 +41,21 @@ $optset.set-callback('c', 's', sub ($opt, $v) {
     is $v, 'clang++', 'set the compiler to clang++.';
 });
 
+my $thr;
+
+supply {
+    whenever $optset.Supply('h') {
+        my ($os, $opt, $v) = @$_;
+
+        $thr = start {
+            sleep 1;
+            ok True, 'sleep 1 in another thread.';
+        };
+
+        is $os, $optset, "get the optset from supply block";
+    }
+}.tap;
+
 &getopt(
     [
         '-h',
@@ -57,6 +72,7 @@ $optset.set-callback('c', 's', sub ($opt, $v) {
     ],
     $optset
 );
+
 $optset.set-value('e', 'a', 'return 0;');
 
 is      $optset.values.elems, 19, 'we add 19 options.';
@@ -80,3 +96,6 @@ is      $optset<e>, [ 'printf("Hello World!");', "return 0;", ], 'append to opti
 is      $optset<ex>, { linux => 'a', win32 => 'exe' }, "set hash value ok";
 nok     $optset<q>, 'disable **quite** option ok';
 is      $optset<c>, 'clang++', 'set the **compiler** option ok';
+is      $optset<u>, Any, 'get any when option not exists';
+
+await $thr;

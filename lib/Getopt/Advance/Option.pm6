@@ -11,7 +11,7 @@ constant FLOAT    = "float";
 constant ARRAY    = "array";
 constant HASH     = "hash";
 
-constant QUITBLOCK = sub (\ex) { };
+constant QUITBLOCK = sub (\ex) { ex.throw; };
 
 role Option { ... }
 
@@ -38,6 +38,7 @@ role Option does RefOptionSet {
     has Str $.annotation    = "";
     has $.value             = Any;
     has $.default-value     = Any;
+    has Supplier $.supplier = Supplier.new;
 
     method value {
         $!value;
@@ -67,9 +68,12 @@ role Option does RefOptionSet {
         $!default-value;
     }
 
+    method Supply { $!supplier.Supply; }
+
     method set-value(Mu $value, Bool :$callback) {
-        if $callback.so && self.has-callback() {
-            &!callback(self, $value);
+        if $callback.so {
+            &!callback(self, $value) if self.has-callback();
+            $!supplier.emit([self.owner(), self, $value]);
         }
         $!value = $value;
     }
@@ -180,6 +184,7 @@ role Option does RefOptionSet {
             annotation  => %_<annotation> // $!annotation.clone,
             value       => %_<value> // $!value.clone,
             default-value=> %_<default-value> // $!default-value.clone,
+            supplier    => Supplier.new,
             |%_
         );
     }
@@ -244,7 +249,7 @@ class Option::Integer does Option {
         } elsif so +$value {
             self.Option::set-value(+$value, :$callback);
         } else {
-            ga-invalid-value("{self.usage()}: option need an integer.");
+            &ga-invalid-value("{self.usage()}: option need an integer.");
         }
     }
 
@@ -271,7 +276,7 @@ class Option::Float does Option {
         } elsif so $value.FatRat {
             self.Option::set-value($value.FatRat, :$callback);
         } else {
-            ga-invalid-value("{self.usage()}: option need a float.");
+            &ga-invalid-value("{self.usage()}: option need a float.");
         }
     }
 
@@ -298,7 +303,7 @@ class Option::String does Option {
         } elsif so ~$value {
             self.Option::set-value(~$value, :$callback);
         } else {
-            ga-invalid-value("{self.usage()}: option need a string.");
+            &ga-invalid-value("{self.usage()}: option need a string.");
         }
     }
 
@@ -315,7 +320,7 @@ class Option::Array does Option {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Positional {
-                ga-invalid-value("{self.usage()}: option need an Positional value.");
+                &ga-invalid-value("{self.usage()}: option need an Positional value.");
             }
             $!value = $!default-value = Array.new(|$value);
         }
@@ -345,7 +350,7 @@ class Option::Hash does Option {
     submethod TWEAK(:$value) {
         if $value.defined {
             unless $value ~~ Hash {
-                ga-invalid-value("{self.usage()}: option need a Hash.");
+                &ga-invalid-value("{self.usage()}: option need a Hash.");
             }
             $!value = $!default-value = $value;
         }
@@ -365,7 +370,7 @@ class Option::Hash does Option {
         } elsif (my $evalue = self!parse-as-pair($value)) {
             %hash.push($evalue);
         } else {
-            ga-invalid-value("{self.usage()}: option need an Pair.");
+            &ga-invalid-value("{self.usage()}: option need an Pair.");
         }
         self.Option::set-value(%hash, :$callback);
     }

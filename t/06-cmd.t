@@ -3,12 +3,17 @@ use Test;
 use Getopt::Advance:api<2>;
 use Getopt::Advance::Exception:api<2>;
 
-plan 6;
+plan 7;
 
 my OptionSet $optset .= new;
 
 $optset.insert-cmd("plus");
-$optset.insert-cmd("multi");
+
+supply {
+    whenever $optset.Supply($optset.insert-cmd("multi")) {
+        ok True, 'call the cmd callback';
+    }
+}.tap;
 
 &main(|getopt(<plus 1 2 3 4 5 6 7 8 9 10>, $optset,));
 
