@@ -11,7 +11,7 @@ constant FLOAT    = "float";
 constant ARRAY    = "array";
 constant HASH     = "hash";
 
-constant QUITBLOCK = sub (\ex) { ex.throw; };
+constant QUITBLOCK = sub (\ex) { };
 
 role Option { ... }
 

@@ -572,6 +572,7 @@ class OptionSet is export {
 
         unless $found-cmd {
             if %!cmd.elems > 0 && (+@front-pos == 0 || !([||] @front-pos>>.success)) {
+                Debug::debug("Throw a non-option error");
                 &ga-non-option-error("Need cmd { +@front-pos > 0 ?? "or front pos :" !! ":" } [" ~ (
                     %!cmd.values>>.usage.join(" ")
                 ) ~ ']');

@@ -217,26 +217,14 @@ class Debug is export {
 }
 
 sub share-supply(Supply $s) is export {
-    my $p   = Promise.new;
-    my $sup = Supplier.new;
-    my $s2  = supply {
+    my $p = Promise.new;
+    my $d = supply {
         whenever $p {
             whenever $s {
                 .emit;
-                LAST { say 1111; }
-                QUIT { say 2222; }
             }
-            LAST { say 33333; }
-            QUIT { say 44444; }
         }
-        LAST { say 15555; }
-        QUIT { say 16666; }
-    };
-    $s2.tap(
-        sub (\msg) { $sup.emit(msg); },
-        done => sub () { $sup.done(); },
-        quit => sub (\ex) { $sup.quit(ex); }
-    );
+    } .share;
     return class :: {
         has $.p;
         has $.d;
@@ -248,5 +236,5 @@ sub share-supply(Supply $s) is export {
         method keep() {
             $!p.keep(1);
         }
-    }.new(p => $p, d => $sup.Supply);
+    }.new(p => $p, d => $d);
 }

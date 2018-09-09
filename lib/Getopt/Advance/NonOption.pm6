@@ -4,7 +4,7 @@ use Getopt::Advance::Utils:api<2>;
 
 unit module Getopt::Advance::NonOption:api<2>;
 
-constant QUITBLOCK = sub (\ex) { ex.throw; };
+constant QUITBLOCK = sub (\ex) { };
 
 role NonOption { ... }
 
@@ -14,16 +14,8 @@ multi sub tapTheParser(Supply:D \parser, NonOption $no) {
     parser.tap(
         #| should use anon sub, point block are transparent to "return"
         sub ($v) {
-            try {
-                if $v.style >= Style::MAIN && $v.style <= Style::POS {
-                    $v.process($no);
-                }
-                CATCH {
-                    default {
-                        say "GET %%%%";
-                        .throw;
-                    }
-                }
+            if $v.style >= Style::MAIN && $v.style <= Style::POS {
+                $v.process($no);
             }
         },
         #| should have a quit named argument, or will not throw exception to outter
