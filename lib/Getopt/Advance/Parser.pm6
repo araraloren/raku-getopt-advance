@@ -14,6 +14,13 @@ my Int $messageid = 0;
 role Parser { ... }
 role ResultHandler { ... }
 
+class ReturnValue is export {
+    has $.optionset;
+    has $.noa;
+    has $.parser;
+    has %.return-value;
+}
+
 grammar OptionGrammar is export {
 	token TOP { ^ <option> $ }
 
@@ -251,7 +258,7 @@ role ResultHandler is export {
 
 role Parser does Getopt::Advance::Utils::Publisher is export {
     has Bool $.strict;
-    has Bool $.autohv;
+    has $.autohv; # not autohv is two option
     has Bool $.bsd-style;
     has $.optgrammar;
     has $.optactions;
@@ -262,10 +269,13 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
     has @.noa;
 	has $.owner;
     has &.is-next-arg-available;
-    has ResultHandler $.nrh; #| for NonOption
+    has ResultHandler $.prh; #| for NonOption::Pos
+    has ResultHandler $.crh; #| for NonOption::Cmd
+    has ResultHandler $.mrh; #| for NonOption::Main
     has ResultHandler $.brh; #| for BSD Option
     has ResultHandler $.orh; #| for Option
-	has ResultHandler $.mrh; #| for Main    
+    has &.optcheck;
+    has &.cmdcheck;
     has @.styles;
     has @.args;
 
@@ -289,6 +299,10 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         }
         unless $!orh.defined {
             $!orh = class :: does ResultHandler {
+                method skip-next-arg() {
+                    $!skiparg = True;
+                    self;
+                }
                 method handle($parser) {
                     Debug::debug("Call handler for option [{$parser.arg}]");
                     unless self.success {
@@ -301,8 +315,11 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                 }
             }.new;
         }
-        unless $!nrh.defined {
-            $!nrh = ResultHandler.new;
+        unless $!prh.defined {
+            $!prh = ResultHandler.new;
+        }
+        unless $!crh.defined {
+            $!crh = ResultHandler.new;
         }
         if $!bsd-style {
             unless $!brh.defined {
@@ -314,6 +331,16 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
 				method set-success() { } # skip the set-success, we need call all the MAINs
 			}.new;
 		}
+        unless &!cmdcheck.defined {
+            &!cmdcheck = sub (\self) {
+                self.owner.check-cmd();
+            };
+        }
+        unless &!optcheck.defined {
+            &!optcheck = sub (\self) {
+                self.owner.check();
+            };
+        }
         if +@order > 0 {
             my (%order, @sorted);
             %order{ @order } = 0 ...^ +@order;
@@ -331,6 +358,13 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
     #| skip current argument
     method skip() {
         $!index += 1;
+    }
+
+    method ignore() {
+        @!noa.push(
+            my $a = Argument.new( index => $!noaIndex++, value => $!arg, )
+        );
+        $a;
     }
 
     method CALL-ME( $!owner ) {
@@ -381,21 +415,18 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
 
                 #| if not bsd style or it matched failed
                 if !$!bsd-style || !$bsdmc.matched {
-                    my $a = Argument.new( index => $!noaIndex++, value => $!arg, );
-
-                    #| push the arg to @!noa
-                    @!noa.push($a);
+                    my $a = self.ignore();
 
                     Debug::debug("** Begin POS NonOption");
 
                     #| maybe a POS
-                    self.publish: ContextProcesser.new( handler => $!nrh.reset(), style => Style::POS,
+                    self.publish: ContextProcesser.new( handler => $!prh.reset(), style => Style::POS,
                         id => $messageid++, 
                         contexts => [
                             TheContext::Pos.new( argument => @!noa, index => $a.index ),
                         ]
                     );
-                    $!nrh.handle(self);
+                    $!prh.handle(self);
 
                     Debug::debug("** End POS NonOption");
                 }
@@ -406,41 +437,120 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         }
 
         Debug::debug(" + Check the option and group");
-        $!owner.check();
+        &!optcheck(self);
 
         #| last, we should emit the CMD and MAIN
         if +@!noa > 0 {
             Debug::debug("** Broadcast the CMD and WHATEVERPOS NonOption");
-            self.publish: ContextProcesser.new( handler => $!nrh.reset(), style => Style::CMD,
+            self.publish: ContextProcesser.new( handler => $!crh.reset(), style => Style::CMD,
                 id => $messageid++,
                 contexts => [
                     TheContext::NonOption.new( argument => @!noa, index => 0),
                 ]
             );
-            $!nrh.handle(self);
+            $!crh.handle(self);
             for @!noa -> $noa {
-                self.publish: ContextProcesser.new( handler => $!nrh.reset(), style => Style::WHATEVERPOS,
+                self.publish: ContextProcesser.new( handler => $!prh.reset(), style => Style::WHATEVERPOS,
                     id => $messageid++,
                     contexts => [
                         TheContext::Pos.new( argument => @!noa, index => $noa.index ),
                     ]
                 );
-                $!nrh.handle(self);
+                $!prh.handle(self);
             }
             Debug::debug("** End the CMD and WHATEVERPOS NonOption");
         }
         #`[check the cmd and pos@0]
         Debug::debug(" + Check the cmd and pos@0");
-        $!owner.check-cmd();
-        Debug::debug("** Broadcast the MAIN NonOption");
-        #| we don't want skip any other MAINs, so we using $!mrh skip the set-success method
-        self.publish: ContextProcesser.new( handler => $!mrh.reset(), style => Style::MAIN,
-            id => $messageid++,
-            contexts => [
-                TheContext::NonOption.new( argument => @!noa, index => -1 ),
-            ]
-        );
-        $!mrh.handle(self);
+        &!cmdcheck(self);
+
+        my $needhelp = $!autohv && &check-if-need-autohv($!owner);
+
+        Debug::debug("** {$needhelp ?? "Skip b" !! "B"}roadcast the MAIN NonOption");
+        
+        if ! $needhelp {
+            #| we don't want skip any other MAINs, so we using $!mrh skip the set-success method
+            self.publish: ContextProcesser.new( handler => $!mrh.reset(), style => Style::MAIN,
+                id => $messageid++,
+                contexts => [
+                    TheContext::NonOption.new( argument => @!noa, index => -1 ),
+                ]
+            );
+            $!mrh.handle(self);
+        }
+
         self;
     }
+}
+
+class PreParser does Parser is export {
+
+    has @.prenoa;
+
+    method preignore() {
+        @!prenoa.push($!arg);
+    }
+
+    method ignore() {
+        self.preignore();
+        self.Parser::ignore();
+    }
+
+    submethod TWEAK() {
+        $!orh = class :: does ResultHandler {
+            method skip-next-arg() {
+                $!skiparg = True;
+                self;
+            }
+            method handle($parser) {
+                Debug::debug("Call handler for option [{$parser.arg}]");
+                #| skip next argument if the option has consume an argument
+                if self.success {
+                    Debug::debug("Will skip the next arguments");
+                    $parser.skip() if self.skiparg();
+                } else {
+                    Debug::debug(" - Ignore current option: {$parser.arg} !");
+                    $parser.ignore();
+                }
+                self;
+            }
+        }.new;
+        &!cmdcheck = sub (\self) { }; 
+    }
+}
+
+sub ga-parser($parserobj, @args, $optset, *%args) is export {
+    $parserobj.init(@args);
+    $optset.set-parser($parserobj);
+    $parserobj.($optset);
+    ReturnValue.new(
+        optionset   => $optset,
+        noa         => $parserobj.noa,
+        parser      => $parserobj,
+        return-value=> do {
+            my %rvs;
+            for %($optset.get-main()) {
+                %rvs{.key} = .value.value;
+            }
+            %rvs;
+        }
+    );
+}
+
+sub ga-pre-parser($parserobj, @args, $optset, *%args) is export {
+    $parserobj.init(@args);
+    $optset.set-parser($parserobj);
+    $parserobj.($optset);
+    ReturnValue.new(
+        optionset   => $optset,
+        noa         => $parserobj.prenoa,
+        parser      => $parserobj,
+        return-value=> do {
+            my %rvs;
+            for %($optset.get-main()) {
+                %rvs{.key} = .value.value;
+            }
+            %rvs;
+        }
+    );
 }

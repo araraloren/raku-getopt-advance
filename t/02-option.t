@@ -3,7 +3,7 @@ use Test;
 use Getopt::Advance:api<2>;
 use Getopt::Advance::Option:api<2>;
 
-plan 27;
+plan 28;
 
 my OptionSet $optset .= new;
 
@@ -22,6 +22,7 @@ $optset.push(
 $optset.push("f|flag=a");
 $optset.push("ex|=h", value => %(win32 => 'exe'));
 $optset.push("q|quite=b/");
+$optset.push("?=b");
 
 $optset.append("p|print-code=b;d|debug=b;t|temp=a");
 $optset.append(
@@ -69,13 +70,14 @@ supply {
         '-i',           'math.h',
         '-e',           'printf("Hello World!");',
         '--debug',
+        '-?',
     ],
     $optset
 );
 
 $optset.set-value('e', 'a', 'return 0;');
 
-is      $optset.values.elems, 19, 'we add 19 options.';
+is      $optset.values.elems, 20, 'we add 20 options.';
 isa-ok  $optset.get('h'), Option::Boolean, 'the **help** is a boolean option.';
 isa-ok  $optset.get('c', 's'), Option::String, 'the **compiler** is a String option.';
 isa-ok  $optset.get('w'), Any, 'we have not a **w** option.';
@@ -97,5 +99,6 @@ is      $optset<ex>, { linux => 'a', win32 => 'exe' }, "set hash value ok";
 nok     $optset<q>, 'disable **quite** option ok';
 is      $optset<c>, 'clang++', 'set the **compiler** option ok';
 is      $optset<u>, Any, 'get any when option not exists';
+ok      $optset<?>, 'set the ? option ok';
 
 await $thr;

@@ -9,8 +9,10 @@ use Getopt::Advance::Exception:api<2>;
 
 unit module Getopt::Advance:api<2>;
 
+constant @predefinedorders = [ ];
+constant @predefinedstyles = [ :long, :xopt, :short, :ziparg, :comb ];
+
 class OptionSet { ... }
-class ReturnValue { ... }
 
 multi sub getopt (
     *@optsets where all(@optsets) ~~ OptionSet,
@@ -23,29 +25,59 @@ multi sub getopt (
 }
 
 multi sub getopt(
+    Str $optstring,
+    *%args ) is export {
+    samewith(
+        @*ARGS ?? @*ARGS.clone !! $[],
+        OptionSet.new.from-optstring($optstring),
+        |%args
+    );
+}
+
+multi sub getopt(
+    @args,
+    Str $optstring,
+    *%args ) is export {
+    samewith(
+        @args,
+        OptionSet.new.from-optstring($optstring),
+        |%args
+    );
+}
+
+multi sub getopt(
     @args is copy,
     *@optsets where all(@optsets) ~~ OptionSet,
     :$stdout = $*OUT,
     :$stderr = $*ERR,
-    :$parser = Parser,
+    :&parser = &ga-parser,
+    :$parserclass,
     :$strict = True,
     :$autohv = False,
-    :$version,
     :$bsd-style = False,
-    :$grammar = OptionGrammar,
-    :$actions = OptionActions,
-    :@styles = [ :long, :xopt, :short, :ziparg, :comb ],
-    :@order  = < long xopt short ziparg comb >) is export {
+    :$version= "",
+    :$grammar= OptionGrammar,
+    :$actions= OptionActions,
+    :@styles = @predefinedstyles,
+    :@order  = @predefinedorders ) is export {
 
-    my $parserobj = Parser.new(
+    my $ret = ReturnValue;
+
+    my $realparserclass = do {
+        if &parser === &ga-parser {
+            Parser;
+        } elsif &parser === &ga-pre-parser {
+            PreParser;
+        } else {
+            $parserclass.defined ?? $parserclass !! Any;
+        }
+    };
+
+    my $parserobj = $realparserclass.new(
         :@args,
-        :$strict,
-        :$autohv,
-        :$bsd-style,
-        :@styles,
-        :@order,
-        optgrammar => $grammar,
-        optactions => $actions,
+        :$strict, :$autohv, :$bsd-style,
+        :@styles, :@order,
+        optgrammar => $grammar, optactions => $actions,
     );
 
     loop (my $index = 0; $index < +@optsets; $index += 1) {
@@ -53,30 +85,26 @@ multi sub getopt(
         my $optset := @optsets[$index];
 
         try {
-            $parserobj.init(@args);
-            $optset.set-parser($parserobj);
-            $parserobj.($optset);
-            $optset.check();
-
-            return ReturnValue.new(
-                optionset   => $optset,
-                noa         => $parserobj.noa,
-                parser      => $parserobj,
-                return-value=> do {
-                    my %rvs;
-                    for %($optset.get-main()) {
-                        %rvs{.key} = .value.value;
-                    }
-                    %rvs;
-                }
+            $ret = &parser(
+                $parserobj,
+                @args,
+                $optset,
+                :$strict,
+                :$autohv,
+                :$bsd-style,
+                :@styles,
+                :@order,
+                optgrammar => $grammar,
+                optactions => $actions,
             );
-
+            last;
             CATCH {
                 when X::GA::ParseError  |
                      X::GA::OptionError |
                      X::GA::GroupError  |
                      X::GA::NonOptionError {
-                    say "Will try next OptionSet.";
+                    #| throw the exception when this is last OptionSet
+                    .throw if $index + 1 == +@optsets;
                     Debug::debug("Will try next OptionSet.");
                 }
 
@@ -84,22 +112,13 @@ multi sub getopt(
                 { }
 
                 default {
-                    say "IN Exception !!! ", .gist;
+                    .throw;
                 }
             }
         }
     }
 
-    say "IN OUT RETURN";
-
-    return ReturnValue;
-}
-
-class ReturnValue is export {
-    has $.optionset;
-    has $.noa;
-    has $.parser;
-    has %.return-value;
+    return $ret;
 }
 
 class OptionSet is export {
@@ -127,6 +146,12 @@ class OptionSet is export {
                    .registe('m', NonOption::Main)
                    .registe('p', NonOption::Pos)
         }
+    }
+
+    method from-optstring(::?CLASS::D: Str:D $optstring is copy) of ::?CLASS {
+        $optstring ~~ s:g/(\w)<!before \:>/$0=b;/;
+        $optstring ~~ s:g/(\w)\:/$0=s;/;
+        self.append($optstring);
     }
 
     #| methods for options

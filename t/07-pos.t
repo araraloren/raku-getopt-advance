@@ -46,6 +46,8 @@ use Getopt::Advance::Exception:api<2>;
 
     $optset.insert-pos("dir", :last, sub ($, $oparg) {
         ok $oparg.value (elem) <dir1/ dir2/>, "last parameter";
+
+        $oparg.value; # the value of pos is callback return value currently
     });
 
     lives-ok {
@@ -88,7 +90,7 @@ use Getopt::Advance::Exception:api<2>;
 {
     my OptionSet $optset .= new;
 
-    $optset.insert-pos("dir", * - 2, sub ($, $oparg) {
+    my $dir = $optset.insert-pos("dir", * - 2, sub ($, $oparg) {
         ok $oparg.value (elem) <dir1/ dir2/>, "last parameter";
     });
 
@@ -103,6 +105,21 @@ use Getopt::Advance::Exception:api<2>;
     lives-ok {
         getopt([], $optset);
     }, "no argument ok";
+
+    $optset.reset-pos($dir);
+
+    is $optset.get-pos($dir).value, Any, 'reset the value to Any';
+
+    $optset.Supply($dir).tap( -> \v {
+        my ($os, $pos, $v) = @(v);
+
+        is $v.value, 'dir2/', 'get value from tap';
+        is $os, $optset, 'get OptionSet from tap';
+    });
+
+    lives-ok {
+        getopt(< load dir2/ 42>, $optset);
+    }, 'tap the POS ok.';
 }
 
 done-testing;

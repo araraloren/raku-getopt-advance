@@ -1,4 +1,6 @@
 
+use Getopt::Advance::Exception:api<2>;
+
 unit module Getopt::Advance::Utils:api<2>;
 
 constant MAXPOSSUPPORT is export = 10240;
@@ -83,7 +85,6 @@ role ContextProcesser does Message is export {
             my $matched = True;
             for @!contexts -> $context {
                 if ! $context.success {
-                    Debug::debug("  - Match {$context.gist} <=> {$o.usage}");
                     if $context.match(self, $o) {
                         $context.set(self, $o);
                     } else {
@@ -151,5 +152,22 @@ class Debug is export {
 
     our sub die(Str $log) {
         die $log;
+    }
+}
+
+state @autohv-opt;
+
+sub set-autohv(Str:D $help, Str:D $version) is export {
+    @autohv-opt = ($help, $version);
+}
+
+sub check-if-need-autohv($optset) is export {
+    given @autohv-opt {
+        &ga-raise-error("Need the option " ~ .[0] ~ " for autohv")
+            if ! $optset.has(.[0]);
+        &ga-raise-error("Need the option " ~ .[1] ~ " for autohv")
+            if ! $optset.has(.[1]);
+
+        return $optset{.[0]} || $optset{.[1]};
     }
 }

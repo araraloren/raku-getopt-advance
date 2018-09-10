@@ -164,7 +164,7 @@ class NonOption::Cmd does NonOption {
 
     method type( --> "cmd") { }
 
-    method usage() { self.name(); }
+    method usage() { "{self.name()}\@0!"; }
 }
 
 class NonOption::Pos does NonOption {
@@ -199,14 +199,16 @@ class NonOption::Pos does NonOption {
     method match-index(Int $total, $index) {
         my $expect-index = $!index ~~ WhateverCode ??
             $!index.($total) !! $!index;
-        my $readl-index = $index ~~ WhateverCode ??
+        my $real-index = $index ~~ WhateverCode ??
                 $index.($total) !! $index;
-        return $readl-index == $expect-index;
+        return $real-index == $expect-index;
     }
 
     method match-name(Str $name --> True ) { }
 
-    method match-style($style --> Bool) { $style == Style::POS; }
+    method match-style($style --> Bool) {
+        $style eq (self.index ~~ WhateverCode ?? Style::WHATEVERPOS !! Style::POS);
+    }
 
     method CALL-ME(|c) {
         my $ret;
@@ -227,5 +229,5 @@ class NonOption::Pos does NonOption {
 
     method type( --> "pos") { }
 
-    method usage() { self.name(); }
+    method usage() { "{self.name()}\@{self.index ~~ WhateverCode ?? 'WhateverCode' !! self.index }"; }
 }

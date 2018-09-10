@@ -43,10 +43,13 @@ class TheContext is export {
                         False;
                     }
                 };
+
+            Debug::debug("  - Name => { $name-r ?? 'OK' !! 'Failed' }");
+
             my $value-r = False;
 
             if $o.need-argument == $!hasarg {
-                Debug::debug("    - Match value [{&!getarg()}] for [{$o.usage}]");
+                Debug::debug("    - Value [{&!getarg()}] for [{$o.usage}]");
                 $value-r = &!getarg.defined ?? $o.match-value(&!getarg()) !! True;
             }
             Debug::debug("    - Match " ~ ($name-r && $value-r ?? "Okay!" !! "Failed!"));
@@ -68,6 +71,9 @@ class TheContext is export {
 
         method match(ContextProcesser $cp, $no) {
             my $style-r = $no.match-style($cp.style);
+
+            Debug::debug("  - Style => { $style-r ?? 'OK' !! 'Failed' }");
+
             my $name-r  = $style-r && do given $cp.style {
                 when Style::MAIN {
                     $no.match-name("");
@@ -76,7 +82,13 @@ class TheContext is export {
                     $no.match-name(@!argument[$!index].Str);
                 }
             };
+
+            Debug::debug("  - Name => { $name-r ?? 'OK' !! 'Failed' }");
+
             my $index-r = $name-r && $no.match-index(+@!argument, $!index);
+
+            Debug::debug("  - Index => { $index-r ?? 'OK' !! 'Failed' }");
+
             my $call-r  = $index-r && do {
                 given $cp.style {
                     when Style::POS | Style::WHATEVERPOS {
