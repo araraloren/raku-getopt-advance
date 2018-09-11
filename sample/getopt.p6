@@ -1,10 +1,10 @@
 #!/usr/bin/env perl6
 
-use Getopt::Advance::Parser:api<2>;
-use Getopt::Advance::Option:api<2>;
-use Getopt::Advance::Utils:api<2>;
-use Getopt::Advance::Types:api<2>;
-use Getopt::Advance::NonOption:api<2>;
+use Getopt::Advance::Parser;
+use Getopt::Advance::Option;
+use Getopt::Advance::Utils;
+use Getopt::Advance::Types;
+use Getopt::Advance::NonOption;
 
 class OptionSet {
     has Supplier $!p = Supplier.new;

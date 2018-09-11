@@ -1,7 +1,7 @@
 
-use Getopt::Advance::Exception:api<2>;
+use Getopt::Advance::Exception;
 
-unit module Getopt::Advance::Utils:api<2>;
+unit module Getopt::Advance::Utils;
 
 constant MAXPOSSUPPORT is export = 10240;
 

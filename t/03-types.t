@@ -1,8 +1,8 @@
 
 use Test;
-use Getopt::Advance::Types:api<2>;
-use Getopt::Advance::Option:api<2>;
-use Getopt::Advance::NonOption:api<2>;
+use Getopt::Advance::Types;
+use Getopt::Advance::Option;
+use Getopt::Advance::NonOption;
 
 my $types = TypesManager.new;
 

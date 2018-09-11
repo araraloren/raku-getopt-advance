@@ -1,7 +1,7 @@
 
 use Test;
-use Getopt::Advance:api<2>;
-use Getopt::Advance::Parser:api<2>;
+use Getopt::Advance;
+use Getopt::Advance::Parser;
 
 my OptionSet $preos .= new;
 

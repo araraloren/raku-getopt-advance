@@ -1,8 +1,8 @@
 
-use Getopt::Advance::Utils:api<2>;
-use Getopt::Advance::Exception:api<2>;
+use Getopt::Advance::Utils;
+use Getopt::Advance::Exception;
 
-unit module Getopt::Advance::Option:api<2>;
+unit module Getopt::Advance::Option;
 
 constant BOOLEAN  = "boolean";
 constant INTEGER  = "integer";

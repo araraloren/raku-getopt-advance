@@ -1,9 +1,10 @@
 
 use Test;
-use Getopt::Advance:api<2>;
-use Getopt::Advance::Exception:api<2>;
+use Getopt::Advance;
+use Getopt::Advance::Helper;
+use Getopt::Advance::Exception;
 
-plan 1;
+plan 2;
 
 {
     my OptionSet $optset .= new;
@@ -26,5 +27,9 @@ plan 1;
 
     dies-ok {
         getopt(["addx", ], $optset);
+    }, "auto helper";
+
+    dies-ok {
+        getopt(["addx", ], $optset, helper => &ga-helper2);
     }, "auto helper";
 }

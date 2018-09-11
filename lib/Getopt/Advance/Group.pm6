@@ -1,9 +1,9 @@
 
-use Getopt::Advance::Utils:api<2>;
-use Getopt::Advance::Types:api<2>;
-use Getopt::Advance::Exception:api<2>;
+use Getopt::Advance::Utils;
+use Getopt::Advance::Types;
+use Getopt::Advance::Exception;
 
-unit module Getopt::Advance::Group:api<2>;
+unit module Getopt::Advance::Group;
 
 class OptionInfo {
     has $.optref;

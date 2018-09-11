@@ -1,6 +1,6 @@
 
 use Test;
-use Getopt::Advance:api<2>;
+use Getopt::Advance;
 
 {
 	my OptionSet $optset .= new;

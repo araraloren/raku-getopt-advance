@@ -1,7 +1,7 @@
 
-use Getopt::Advance::Utils:api<2>;
+use Getopt::Advance::Utils;
 
-unit module Getopt::Advance::Types:api<2>;
+unit module Getopt::Advance::Types;
 
 constant WhateverType is export = '*';
 

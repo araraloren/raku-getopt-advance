@@ -1,5 +1,5 @@
 
-unit module Getopt::Advance::Argument:api<2>;
+unit module Getopt::Advance::Argument;
 
 
 class Argument is export {

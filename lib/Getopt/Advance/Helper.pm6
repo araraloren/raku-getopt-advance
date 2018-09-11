@@ -1,7 +1,7 @@
 
-use Getopt::Advance::Utils:api<2>;
+use Getopt::Advance::Utils;
 
-unit module Getopt::Advance::Helper:api<2>;
+unit module Getopt::Advance::Helper;
 
 constant HELPOPTSUPPORT = 5; #| option number can display in usage
 constant HELPPOSSUPPORT = 2;

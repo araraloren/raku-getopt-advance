@@ -1,14 +1,14 @@
 
-use Getopt::Advance::Utils:api<2>;
-use Getopt::Advance::Types:api<2>;
-use Getopt::Advance::Group:api<2>;
-use Getopt::Advance::Helper:api<2>;
-use Getopt::Advance::Parser:api<2>;
-use Getopt::Advance::Option:api<2>;
-use Getopt::Advance::NonOption:api<2>;
-use Getopt::Advance::Exception:api<2>;
+use Getopt::Advance::Utils;
+use Getopt::Advance::Types;
+use Getopt::Advance::Group;
+use Getopt::Advance::Helper;
+use Getopt::Advance::Parser;
+use Getopt::Advance::Option;
+use Getopt::Advance::NonOption;
+use Getopt::Advance::Exception;
 
-unit module Getopt::Advance:api<2>;
+unit module Getopt::Advance;
 
 constant @predefinedorders = [ ];
 constant @predefinedstyles = [ :long, :xopt, :short, :ziparg, :comb ];

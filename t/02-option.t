@@ -1,7 +1,7 @@
 
 use Test;
-use Getopt::Advance:api<2>;
-use Getopt::Advance::Option:api<2>;
+use Getopt::Advance;
+use Getopt::Advance::Option;
 
 plan 28;
 

@@ -1,11 +1,11 @@
 
-use Getopt::Advance::Utils:api<2>;
-use Getopt::Advance::Context:api<2>;
-use Getopt::Advance::Option:api<2>;
-use Getopt::Advance::Exception:api<2>;
-use Getopt::Advance::Argument:api<2>;
+use Getopt::Advance::Utils;
+use Getopt::Advance::Context;
+use Getopt::Advance::Option;
+use Getopt::Advance::Exception;
+use Getopt::Advance::Argument;
 
-unit module Getopt::Advance::Parser:api<2>;
+unit module Getopt::Advance::Parser;
 
 my constant ParserRT = sub { True };
 my constant ParserRF = sub { False };

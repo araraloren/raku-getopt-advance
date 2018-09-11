@@ -1,7 +1,7 @@
 
 use Test;
-use Getopt::Advance:api<2>;
-use Getopt::Advance::Exception:api<2>;
+use Getopt::Advance;
+use Getopt::Advance::Exception;
 
 {
     my OptionSet $optset .= new;

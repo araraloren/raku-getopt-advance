@@ -1,8 +1,8 @@
 
-use Getopt::Advance::Exception:api<2>;
-use Getopt::Advance::Utils:api<2>;
+use Getopt::Advance::Exception;
+use Getopt::Advance::Utils;
 
-unit module Getopt::Advance::NonOption:api<2>;
+unit module Getopt::Advance::NonOption;
 
 class NonOptionInfo does Info {
     has $.optname;
