@@ -117,7 +117,7 @@ class Debug is export {
 
     subset LEVEL of Int where { $_ >= DEBUG.Int && $_ <= ERROR.Int };
 
-    our $g-level = DEBUG;
+    our $g-level = ERROR;
     our $g-stderr = $*ERR;
 
     our sub setLevel(LEVEL $level) {
@@ -155,7 +155,7 @@ class Debug is export {
     }
 }
 
-state @autohv-opt;
+state @autohv-opt = [ "help", "version" ];
 
 sub set-autohv(Str:D $help, Str:D $version) is export {
     @autohv-opt = ($help, $version);

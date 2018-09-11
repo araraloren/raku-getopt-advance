@@ -2,6 +2,7 @@
 use Getopt::Advance::Utils:api<2>;
 use Getopt::Advance::Types:api<2>;
 use Getopt::Advance::Group:api<2>;
+use Getopt::Advance::Helper:api<2>;
 use Getopt::Advance::Parser:api<2>;
 use Getopt::Advance::Option:api<2>;
 use Getopt::Advance::NonOption:api<2>;
@@ -50,6 +51,7 @@ multi sub getopt(
     *@optsets where all(@optsets) ~~ OptionSet,
     :$stdout = $*OUT,
     :$stderr = $*ERR,
+    :&helper = &ga-helper,
     :&parser = &ga-parser,
     :$parserclass,
     :$strict = True,
@@ -80,9 +82,17 @@ multi sub getopt(
         optgrammar => $grammar, optactions => $actions,
     );
 
+    sub showhelp(@optset) {
+        if &helper.defined {
+            &helper.(@optset, $stderr);
+        }     
+    }
+
+    my $optset;
+
     loop (my $index = 0; $index < +@optsets; $index += 1) {
 
-        my $optset := @optsets[$index];
+        $optset := @optsets[$index];
 
         try {
             $ret = &parser(
@@ -104,18 +114,32 @@ multi sub getopt(
                      X::GA::GroupError  |
                      X::GA::NonOptionError {
                     #| throw the exception when this is last OptionSet
-                    .throw if $index + 1 == +@optsets;
+                    if $index + 1 == +@optsets {
+                        &showhelp(@optsets);
+                        .throw;
+                    }
                     Debug::debug("Will try next OptionSet.");
                 }
 
-                when X::GA::WantPrintHelper | X::GA::WantPrintAllHelper
-                { }
+                when X::GA::WantPrintHelper {
+                    &showhelp([ $optset, ]);
+                    exit(0);
+                }
+
+                when X::GA::WantPrintAllHelper {
+                    &showhelp(@optsets);
+                    exit(0);
+                }
 
                 default {
                     .throw;
                 }
             }
         }
+    }
+
+    if $autohv && &check-if-need-autohv($optset) {
+        &showhelp([ $optset, ]);
     }
 
     return $ret;
@@ -651,4 +675,29 @@ class OptionSet is export {
         $obj.reset-owner();
         $obj;
     }
+}
+
+#| &wrap-command using `run` execute the $cmd
+#| call &tweak after &getopt called
+sub wrap-command(OptionSet $os, $cmd, @args is copy = @*ARGS, :&tweak, :$async, *%args) is export {
+    my %gargs = parser => &ga-pre-parser;
+
+    # remove the args of getopt
+    for < helper stdout stderr parserclass strict autohv version bsd-style grammar actions styles order > {
+        if %args{$_}:exists {
+            %gargs{$_} = %args{$_};
+            %args{$_}:delete;
+        }
+    }
+
+    %args<parser>:delete;
+
+    my $ret = &getopt(@args, $os, |%gargs);
+
+    &tweak($os, $ret) if &tweak.defined;
+
+    if $async {
+       return Proc::Async.new($cmd, |$ret.noa, |%args);
+    }
+    return run($cmd, |$ret.noa, |%args);
 }

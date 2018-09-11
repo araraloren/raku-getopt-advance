@@ -6,9 +6,14 @@ use Getopt::Advance::Exception:api<2>;
 unit module Getopt::Advance::Group:api<2>;
 
 class OptionInfo {
+    has $.optref;
     has $.long;
     has $.short;
     has $.type;
+
+    method name() {
+        self.long eq "" ?? self.short() !! self.long();
+    }
 }
 
 role Group does RefOptionSet {
@@ -20,7 +25,7 @@ role Group does RefOptionSet {
         @!infos = [];
         for @options {
             @!infos.push(
-                OptionInfo.new(long => .long, short => .short, type => .type)
+                OptionInfo.new(optref => $_, long => .long, short => .short, type => .type)
             );
         }
     }
@@ -29,14 +34,14 @@ role Group does RefOptionSet {
         my $usage = "";
 
         $usage ~= $!optional ?? "+\[ " !! "+\< ";
-        $usage ~= self.owner.get(.long eq "" ?? .short !! .long).usage() for @!infos;
+        $usage ~= self.owner.get(.name()).usage() for @!infos;
         $usage ~= $!optional ?? " \]+" !! " \>+";
         $usage;
     }
 
     method has(Str:D $name, Str:D $type = WhateverType --> False) {
         for @!infos {
-            if $type eq .type && ($name eq .long || $name eq .short) {
+            if self.owner.types.innername($type) eq .type && ($name eq .long || $name eq .short) {
                 return True;
             }
         }
@@ -45,7 +50,7 @@ role Group does RefOptionSet {
     method remove(Str:D $name, Str:D $type = WhateverType --> False) {
         for ^+@!infos -> $index {
             given @!infos[$index] {
-                if $type eq .type && ($name eq .long || $name eq .short) {
+                if self.owner.types.innername($type) eq .type && ($name eq .long || $name eq .short) {
                     @!infos.splice($index, 1);
                     return True;
                 }

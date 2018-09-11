@@ -164,7 +164,7 @@ class NonOption::Cmd does NonOption {
 
     method type( --> "cmd") { }
 
-    method usage() { "{self.name()}\@0!"; }
+    method usage() { self.name(); }
 }
 
 class NonOption::Pos does NonOption {
@@ -229,5 +229,10 @@ class NonOption::Pos does NonOption {
 
     method type( --> "pos") { }
 
-    method usage() { "{self.name()}\@{self.index ~~ WhateverCode ?? 'WhateverCode' !! self.index }"; }
+    method usage() {
+        if self.index ~~ Int && self.index == 0 {
+            return self.name();
+        }
+        return "{self.name()}\@{self.index ~~ WhateverCode ?? '*' !! self.index }";
+    }
 }
