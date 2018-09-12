@@ -86,7 +86,7 @@ multi sub getopt(
     sub showhelp(@optset) {
         if &helper.defined {
             &helper.(@optset, $stderr);
-        }     
+        }
     }
 
     my $optset;
@@ -603,11 +603,11 @@ class OptionSet is export {
         .check unless .optional for @!options;
     }
 
-    method check-cmd(::?CLASS::D:) {
+    method check-cmd(::?CLASS::D: $noacount) {
         my @front-pos;
 
         for %!pos {
-            @front-pos.push(.value) if .value.match-index(MAXPOSSUPPORT, 0);
+            @front-pos.push(.value) if .value.match-index($noacount, 0);
         }
 
         my $found-cmd = [||] %!cmd.values>>.success;
