@@ -28,6 +28,8 @@ role RefOptionSet { ... }
 
 class Debug { ... }
 
+class OptionValueSetter { ... }
+
 role Info is export {
 
     method check(Message $msg --> Bool) { ... }
@@ -78,7 +80,7 @@ role ContextProcesser does Message is export {
 
     method process($o) {
         Debug::debug("== message {$!id}: [{self.style}|{self.contexts>>.gist.join(" + ")}]");
-        if $!handler.success {
+        if self.matched() {
             Debug::debug("- Skip");
         } else {
             Debug::debug("- Match <-> {$o.usage}");
@@ -152,6 +154,15 @@ class Debug is export {
 
     our sub die(Str $log) {
         die $log;
+    }
+}
+
+class OptionValueSetter is export {
+    has $.optref;
+    has $.value;
+
+    method set-value() {
+        $!optref.set-value($!value, :callback);
     }
 }
 

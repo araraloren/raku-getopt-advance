@@ -58,10 +58,9 @@ multi sub getopt(
     :$autohv = False,
     :$bsd-style = False,
     :$version= "",
-    :$grammar= OptionGrammar,
-    :$actions= OptionActions,
     :@styles = @predefinedstyles,
-    :@order  = @predefinedorders ) is export {
+    :@order  = @predefinedorders,
+    *%args) is export {
 
     my $ret = ReturnValue;
 
@@ -70,6 +69,8 @@ multi sub getopt(
             Parser;
         } elsif &parser === &ga-pre-parser {
             PreParser;
+        } elsif &parser === &ga-parser2 {
+            Parser2;
         } else {
             $parserclass.defined ?? $parserclass !! Any;
         }
@@ -79,7 +80,7 @@ multi sub getopt(
         :@args,
         :$strict, :$autohv, :$bsd-style,
         :@styles, :@order,
-        optgrammar => $grammar, optactions => $actions,
+        |%args,
     );
 
     sub showhelp(@optset) {
@@ -104,8 +105,7 @@ multi sub getopt(
                 :$bsd-style,
                 :@styles,
                 :@order,
-                optgrammar => $grammar,
-                optactions => $actions,
+                |%args,
             );
             last;
             CATCH {
@@ -683,7 +683,7 @@ sub wrap-command(OptionSet $os, $cmd, @args is copy = @*ARGS, :&tweak, :$async, 
     my %gargs = parser => &ga-pre-parser;
 
     # remove the args of getopt
-    for < helper stdout stderr parserclass strict autohv version bsd-style grammar actions styles order > {
+    for < helper stdout stderr parserclass strict autohv version bsd-style styles order > {
         if %args{$_}:exists {
             %gargs{$_} = %args{$_};
             %args{$_}:delete;

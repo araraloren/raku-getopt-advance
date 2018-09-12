@@ -12,7 +12,9 @@ my constant ParserRF = sub { False };
 my Int $messageid = 0;
 
 role Parser { ... }
+role TypeOverload { ... }
 role ResultHandler { ... }
+role ResultHandlerOverload { ... }
 
 class ReturnValue is export {
     has $.optionset;
@@ -52,7 +54,12 @@ class OptionActions is export {
 	has $.value;
 	has $.prefix;
     has $.handler;
+    has $.typeoverload;
     has $.publisher handles < publish >;
+
+    method set-typeoverload($typeoverload) {
+        $!typeoverload = $typeoverload;
+    }
 
     method set-handler(ResultHandler $handler) {
         $!handler = $handler;
@@ -110,17 +117,41 @@ class OptionActions is export {
         @guess;
     }
 
+    multi method islike(:$long!) {
+        $!prefix == Prefix::LONG;
+    }
+
+    multi method islike(:$xopt!) {
+        $!prefix == Prefix::SHORT && $!name.chars > 1;
+    }
+
+    multi method islike(:$short) {
+        $!prefix == Prefix::SHORT && $!name.chars == 1;
+    }
+
+    multi method islike(:$ziparg) {
+        $!name.chars > 1 && !$!value.defined;
+    }
+
+    multi method islike(:$comb) {
+        $!name.chars > 1;
+    }
+
+    method type() {
+        $!typeoverload;
+    }
+
     # generate option like '--foo', aka long style
     multi method broadcast-option(&getarg, :$long!) {
         # skip option like '-f'
-        if $!prefix == Prefix::LONG  {
+        if self.islike(:long)  {
             for self!guess-option(&getarg) -> $g {
-                self.publish: ContextProcesser.new(
+                self.publish: self.type.contextprocesser.new(
                     id => $messageid++,
                     handler => $!handler,
                     style => Style::LONG,
                     contexts => [
-                        TheContext::Option.new(
+                        self.type.optcontext.new(
                             prefix => $!prefix,
                             name   => $!name,
                             hasarg => $g.[0],
@@ -135,14 +166,14 @@ class OptionActions is export {
     # generate option like '-foo', but not '-f', aka x-style
     multi method broadcast-option(&getarg, :$xopt!) {
         # skip option like '-f'
-        if $!prefix == Prefix::SHORT && $!name.chars > 1  {
+        if self.islike(:xopt) {
             for self!guess-option(&getarg) -> $g {
-                self.publish: ContextProcesser.new(
+                self.publish: self.type.contextprocesser.new(
                     id => $messageid++,
                     handler => $!handler,
                     style => Style::XOPT,
                     contexts => [
-                        TheContext::Option.new(
+                        self.type.optcontext.new(
                             prefix => $!prefix,
                             name   => $!name,
                             hasarg => $g.[0],
@@ -156,14 +187,14 @@ class OptionActions is export {
 
     # generate option like '-a', aka short style
     multi method broadcast-option(&getarg, :$short!) {
-        if $!prefix == Prefix::SHORT && $!name.chars == 1 {
+        if self.islike(:short) {
             for self!guess-option(&getarg) -> $g {
-                self.publish: ContextProcesser.new(
+                self.publish: self.type.contextprocesser.new(
                     id => $messageid++,
                     handler => $!handler,
                     style => Style::SHORT,
                     contexts => [
-                        TheContext::Option.new(
+                        self.type.optcontext.new(
                             prefix => $!prefix,
                             name   => $!name,
                             hasarg => $g.[0],
@@ -177,13 +208,13 @@ class OptionActions is export {
 
     # generate option like '[-|--]ab' ==> '[-|--]a b, that mean b is argument of option a
     multi method broadcast-option(&getarg, :$ziparg!) {
-        if $!name.chars > 1 && !$!value.defined {
-            self.publish: ContextProcesser.new(
+        if self.islike(:ziparg) {
+            self.publish: self.type.contextprocesser.new(
                 id => $messageid++,
                 handler => $!handler,
                 style => Style::ZIPARG,
                 contexts => [
-                    TheContext::Option.new(
+                    self.type.optcontext.new(
                         prefix => $!prefix,
                         name   => $!name.substr(0, 1),
                         hasarg => True,
@@ -196,13 +227,13 @@ class OptionActions is export {
 
     # generate option like '[-|--][/]ab' ==> '[-|--][/]a [-|--][/]b, that mean multi option
     multi method broadcast-option(&getarg, :$comb!) {
-        if $!name.chars > 1 {
+        if self.islike(:comb) {
             my @opts = $!name.comb;
             my @contexts;
 
             for @opts[0..*-2] -> $opt {
                 @contexts.push(
-                    TheContext::Option.new(
+                    self.type.optcontext.new(
                             prefix => $!prefix,
                             name   => $opt,
                             hasarg => False,
@@ -215,14 +246,14 @@ class OptionActions is export {
             for self!guess-option(&getarg) -> $g {
                 my @t = @contexts;
                 @t.push(
-                    TheContext::Option.new(
+                    self.type.optcontext.new(
                         prefix => $!prefix,
                         name   => @opts[*-1],
                         hasarg => $g.[0],
                         getarg  => $g.[1],
                     )
                 );
-                self.publish: ContextProcesser.new(
+                self.publish: self.type.contextprocesser.new(
                     id => $messageid++,
                     handler => $!handler,
                     style => Style::COMB,
@@ -256,12 +287,45 @@ role ResultHandler is export {
     method skip-next-arg() { self; }
 }
 
+role TypeOverload is export {
+    has $.optgrammar is rw;
+    has $.optactions is rw;
+    has $.optcontext is rw;
+    has $.poscontext is rw;
+    has $.cmdcontext is rw;
+    has $.maincontext is rw;
+    has $.contextprocesser is rw;
+}
+
+role ResultHandlerOverload is export {
+    has $.prh is rw; #| for pos
+    has $.crh is rw; #| for cmd
+    has $.mrh is rw; #| for main
+    has $.brh is rw; #| for bsd-style option
+    has $.orh is rw; #| for option
+}
+
+my class OptionResultHandler does ResultHandler {
+    method skip-next-arg() {
+        $!skiparg = True;
+        self;
+    }
+    method handle($parser) {
+        Debug::debug("Call handler for option [{$parser.arg}]");
+        unless self.success {
+            &ga-parse-error("Can not find the option: {$parser.arg}");
+        }
+        #| skip next argument if the option has consume an argument
+        Debug::debug("Will skip the next arguments");
+        $parser.skip() if self.skiparg();
+        self;
+    }
+}
+
 role Parser does Getopt::Advance::Utils::Publisher is export {
     has Bool $.strict;
-    has $.autohv; # not autohv is two option
+    has Bool $.autohv;
     has Bool $.bsd-style;
-    has $.optgrammar;
-    has $.optactions;
     has Int  $.index;
     has Int  $.count;
     has Int  $!noaIndex;
@@ -269,15 +333,20 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
     has @.noa;
 	has $.owner;
     has &.is-next-arg-available;
-    has ResultHandler $.prh; #| for NonOption::Pos
-    has ResultHandler $.crh; #| for NonOption::Cmd
-    has ResultHandler $.mrh; #| for NonOption::Main
-    has ResultHandler $.brh; #| for BSD Option
-    has ResultHandler $.orh; #| for Option
     has &.optcheck;
     has &.cmdcheck;
     has @.styles;
     has @.args;
+    has $.typeoverload = TypeOverload.new(
+        optgrammar => OptionGrammar,
+        optactions => OptionActions,
+        optcontext => TheContext::Option,
+        poscontext => TheContext::Pos,
+        cmdcontext => TheContext::NonOption,
+        maincontext=> TheContext::NonOption,
+        contextprocesser => Getopt::Advance::Utils::ContextProcesser, #| seems like a bug, need module package 
+    );
+    has $.handler = ResultHandlerOverload.new;
 
     method init(@!args,  :@order) {
         $!noaIndex = $!index = 0;
@@ -297,37 +366,22 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                 }
             }
         }
-        unless $!orh.defined {
-            $!orh = class :: does ResultHandler {
-                method skip-next-arg() {
-                    $!skiparg = True;
-                    self;
-                }
-                method handle($parser) {
-                    Debug::debug("Call handler for option [{$parser.arg}]");
-                    unless self.success {
-                        &ga-parse-error("Can not find the option: {$parser.arg}");
-                    }
-                    #| skip next argument if the option has consume an argument
-                    Debug::debug("Will skip the next arguments");
-                    $parser.skip() if self.skiparg();
-                    self;
-                }
-            }.new;
+        unless $!handler.orh.defined {
+            $!handler.orh = OptionResultHandler.new;
         }
-        unless $!prh.defined {
-            $!prh = ResultHandler.new;
+        unless $!handler.prh.defined {
+            $!handler.prh = ResultHandler.new;
         }
-        unless $!crh.defined {
-            $!crh = ResultHandler.new;
+        unless $!handler.crh.defined {
+            $!handler.crh = ResultHandler.new;
         }
         if $!bsd-style {
-            unless $!brh.defined {
-                $!brh = ResultHandler.new;
+            unless $!handler.brh.defined {
+                $!handler.brh = ResultHandler.new;
             }
         }
-		unless $!mrh.defined {
-			$!mrh = class :: does ResultHandler {
+		unless $!handler.mrh.defined {
+			$!handler.mrh = class :: does ResultHandler {
 				method set-success() { } # skip the set-success, we need call all the MAINs
 			}.new;
 		}
@@ -367,20 +421,29 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         $a;
     }
 
+    method type() {
+        $!typeoverload;
+    }
+
+    method handler() {
+        $!handler;
+    }
+
     method CALL-ME( $!owner ) {
         my @delaypos;
 
-        Debug::debug("Got arguments '{@!args.join(" ")}' from input");
+        Debug::debug("Call parser, got arguments '{@!args.join(",")}' from input");
         while $!index < $!count {
-            ($!arg, my $actions) = ( @!args[$!index], self.optactions.new );
+            ($!arg, my $actions) = ( @!args[$!index], self.type.optactions.new );
 
             sub get-option-arg() { @!args[$!index + 1]; }
 
             Debug::debug("Process the argument '{$!arg}'\@{$!index}");
 
-            if self.optgrammar.parse($!arg, :$actions) {
+            if self.type.optgrammar.parse($!arg, :$actions) {
                 #| the action need handler pass it to ContextProcesser
-                $actions.set-handler($!orh.reset());
+                $actions.set-typeoverload(self.type);
+                $actions.set-handler(self.handler.orh.reset());
                 $actions.set-publisher(self);
                 for @!styles -> $style {
                     if $style.defined {
@@ -389,17 +452,18 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                         Debug::debug("** End broadcast {$style.key.Str} style option");
                     }
                 }
-                $!orh.handle(self);
+                $!handler.orh.handle(self);
             } else {
                 my $bsdmc;
 
                 #| if we need suppot bsd style
                 if $!bsd-style {
                     #| reset the bsd style handler
-                    $bsdmc = ContextProcesser.new( handler => $!brh.reset(), style => Style::BSD,
+                    $bsdmc = self.type.contextprocesser.new( handler => self.handler.brh.reset(),
+                        style => Style::BSD,
                         id => $messageid++,
                         contexts => [
-                            TheContext::Option.new(
+                            self.type.optcontext.new(
                                 prefix  => Prefix::NULL,
                                 name    => $_,
                                 hasarg  => False,
@@ -409,29 +473,15 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                     );
                     Debug::debug("** Broadcast a bsd style option [{$!arg.comb.join("|")}]");
                     self.publish: $bsdmc;
-                    $!brh.handle(self);
+                    self.handler.brh.handle(self);
                     Debug::debug("** End bsd style");
                 }
 
                 #| if not bsd style or it matched failed
                 if !$!bsd-style || !$bsdmc.matched {
-                    my $a = self.ignore();
-
-                    Debug::debug("** Begin POS NonOption");
-
-                    #| maybe a POS
-                    self.publish: ContextProcesser.new( handler => $!prh.reset(), style => Style::POS,
-                        id => $messageid++, 
-                        contexts => [
-                            TheContext::Pos.new( argument => @!noa, index => $a.index ),
-                        ]
-                    );
-                    $!prh.handle(self);
-
-                    Debug::debug("** End POS NonOption");
+                    self.ignore();
                 }
             }
-
             #| increment the index
             self.skip();
         }
@@ -441,50 +491,63 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
 
         #| last, we should emit the CMD and MAIN
         if +@!noa > 0 {
-            Debug::debug("** Broadcast the CMD and WHATEVERPOS NonOption");
-            self.publish: ContextProcesser.new( handler => $!crh.reset(), style => Style::CMD,
+            Debug::debug("** Broadcast the CMD NonOption");
+            self.publish: self.type.contextprocesser.new( handler => self.handler.crh.reset(),
+                style => Style::CMD,
                 id => $messageid++,
                 contexts => [
-                    TheContext::NonOption.new( argument => @!noa, index => 0),
+                    self.type.cmdcontext.new( argument => @!noa, index => 0),
                 ]
             );
-            $!crh.handle(self);
+            self.handler.crh.handle(self);
+            Debug::debug("** End broadcast the CMD NonOption");
+            Debug::debug("** Begin POS and WHATEVERPOS NonOption");
             for @!noa -> $noa {
-                self.publish: ContextProcesser.new( handler => $!prh.reset(), style => Style::WHATEVERPOS,
+                self.publish: self.type.contextprocesser.new( handler => self.handler.prh.reset(),
+                    style => Style::WHATEVERPOS,
                     id => $messageid++,
                     contexts => [
-                        TheContext::Pos.new( argument => @!noa, index => $noa.index ),
+                        self.type.poscontext.new( argument => @!noa, index => $noa.index ),
                     ]
                 );
-                $!prh.handle(self);
+                self.handler.prh.handle(self);
+                #| maybe a POS
+                self.publish: self.type.contextprocesser.new( handler => self.handler.prh.reset(),
+                    style => Style::POS,
+                    id => $messageid++,
+                    contexts => [
+                        self.type.poscontext.new( argument => @!noa, index => $noa.index ),
+                    ]
+                );
+                self.handler.prh.handle(self);
             }
-            Debug::debug("** End the CMD and WHATEVERPOS NonOption");
+            Debug::debug("** End broadcast POS and WHATEVERPOS NonOption");
         }
-        #`[check the cmd and pos@0]
+        #| check the cmd and pos@0
         Debug::debug(" + Check the cmd and pos@0");
         &!cmdcheck(self);
 
+        #| check if autohv is true
         my $needhelp = $!autohv && &check-if-need-autohv($!owner);
 
         Debug::debug("** {$needhelp ?? "Skip b" !! "B"}roadcast the MAIN NonOption");
         
         if ! $needhelp {
             #| we don't want skip any other MAINs, so we using $!mrh skip the set-success method
-            self.publish: ContextProcesser.new( handler => $!mrh.reset(), style => Style::MAIN,
+            self.publish: self.type.contextprocesser.new( handler => self.handler.mrh.reset(),
+                style => Style::MAIN,
                 id => $messageid++,
                 contexts => [
-                    TheContext::NonOption.new( argument => @!noa, index => -1 ),
+                    self.type.maincontext.new( argument => @!noa, index => -1 ),
                 ]
             );
-            $!mrh.handle(self);
+            self.handler.mrh.handle(self);
         }
-
         self;
     }
 }
 
 class PreParser does Parser is export {
-
     has @.prenoa;
 
     method preignore() {
@@ -497,7 +560,7 @@ class PreParser does Parser is export {
     }
 
     submethod TWEAK() {
-        $!orh = class :: does ResultHandler {
+        self.handler.orh = class :: does ResultHandler {
             method skip-next-arg() {
                 $!skiparg = True;
                 self;
@@ -544,6 +607,81 @@ sub ga-pre-parser($parserobj, @args, $optset, *%args) is export {
     ReturnValue.new(
         optionset   => $optset,
         noa         => $parserobj.prenoa,
+        parser      => $parserobj,
+        return-value=> do {
+            my %rvs;
+            for %($optset.get-main()) {
+                %rvs{.key} = .value.value;
+            }
+            %rvs;
+        }
+    );
+}
+
+class SaveOVSHandler is OptionResultHandler {
+    has @.ovs;
+
+    method saveOVS($r) {
+        @!ovs.push($r);
+    }
+
+    method setOVS() {
+        .set-value() for @!ovs;
+    }
+}
+
+class SaveContextProcesser is Getopt::Advance::Utils::ContextProcesser {
+    method process($o) {
+        Debug::debug("== message {self.id}: [{self.style}|{self.contexts>>.gist.join(" + ")}]");
+        if self.matched() {
+            Debug::debug("- Skip");
+        } else {
+            Debug::debug("- Match <-> {$o.usage}");
+            my $matched = True;
+            for self.contexts -> $context {
+                if ! $context.success {
+                    if $context.match(self, $o) {
+                        if (my $r = $context.set(self, $o)) ~~ OptionValueSetter {
+                            self.handler.saveOVS($r);
+                        }
+                    } else {
+                        $matched = False;
+                    }
+                }
+            }
+            if $matched {
+                if $o.?need-argument {
+                    Debug::debug("  - Call handler to shift argument.");
+                    self.handler.skip-next-arg();
+                }
+                self.handler.set-success();
+            }
+        }
+        Debug::debug("- process end {self.id}");
+    }
+}
+
+class Parser2 does Parser is export {
+    submethod TWEAK() {
+        self.type.contextprocesser = SaveContextProcesser;
+        self.type.optcontext = TheContext::DelayOption;
+        self.handler.orh = SaveOVSHandler.new;
+        &!cmdcheck = sub (\self) {
+            self.handler.orh.setOVS();
+            self.owner.check();
+            self.owner.check-cmd();
+        };
+        &!optcheck = sub (\self) { };
+    }
+}
+
+sub ga-parser2($parserobj, @args, $optset, *%args) is export {
+    $parserobj.init(@args);
+    $optset.set-parser($parserobj);
+    $parserobj.($optset);
+    ReturnValue.new(
+        optionset   => $optset,
+        noa         => $parserobj.noa,
         parser      => $parserobj,
         return-value=> do {
             my %rvs;

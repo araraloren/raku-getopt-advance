@@ -65,6 +65,17 @@ class TheContext is export {
         method gist() { "\{{$!prefix}, {$!name}{$!hasarg ?? ":" !! ""}\}" }
     }
 
+    class DelayOption is Option {
+        method set(ContextProcesser $cp, $o) {
+            self.mark-matched();
+            Debug::debug("    - OK! Delay set value {self.getarg()()} for [{$o.usage}], shift args: {$o.need-argument}");
+            OptionValueSetter.new(
+                optref => $o, 
+                value  => self.getarg()(),
+            );
+        }
+    }
+
     class NonOption does Context {
         has @.argument;
         has $.index;
