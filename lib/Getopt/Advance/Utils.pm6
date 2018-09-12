@@ -44,9 +44,9 @@ role Message is export {
     method data() { ... }
 }
 
-role Publisher is export { 
+role Publisher is export {
     has Info @.infos;
-    
+
     method publish(Message $msg) {
         for @!infos -> $info {
             if $info.check($msg) {
@@ -95,7 +95,7 @@ role ContextProcesser does Message is export {
                 }
             }
             if $matched {
-                if $o.?need-argument {
+                if self.style != Style::ZIPARG && $o.?need-argument {
                     Debug::debug("  - Call handler to shift argument.");
                     $!handler.skip-next-arg();
                 }
@@ -119,7 +119,7 @@ class Debug is export {
 
     subset LEVEL of Int where { $_ >= DEBUG.Int && $_ <= ERROR.Int };
 
-    our $g-level = ERROR;
+    our $g-level = WARN;
     our $g-stderr = $*ERR;
 
     our sub setLevel(LEVEL $level) {
