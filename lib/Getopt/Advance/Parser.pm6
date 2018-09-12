@@ -125,15 +125,15 @@ class OptionActions is export {
         $!prefix == Prefix::SHORT && $!name.chars > 1;
     }
 
-    multi method islike(:$short) {
+    multi method islike(:$short!) {
         $!prefix == Prefix::SHORT && $!name.chars == 1;
     }
 
-    multi method islike(:$ziparg) {
+    multi method islike(:$ziparg!) {
         $!name.chars > 1 && !$!value.defined;
     }
 
-    multi method islike(:$comb) {
+    multi method islike(:$comb!) {
         $!name.chars > 1;
     }
 
@@ -269,10 +269,7 @@ role ResultHandler is export {
     has $.skiparg = False;
 
     #| set we match success
-    method set-success() {
-        $!success = True;
-        self;
-    }
+    method set-success() { $!success = True; self; }
 
     #| reset the status, so we can use the handler next time
     method reset() {
@@ -344,7 +341,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         poscontext => TheContext::Pos,
         cmdcontext => TheContext::NonOption,
         maincontext=> TheContext::NonOption,
-        contextprocesser => Getopt::Advance::Utils::ContextProcesser, #| seems like a bug, need module package 
+        contextprocesser => Getopt::Advance::Utils::ContextProcesser, #| seems like a bug, need module package
     );
     has $.handler = ResultHandlerOverload.new;
 
@@ -387,7 +384,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
 		}
         unless &!cmdcheck.defined {
             &!cmdcheck = sub (\self) {
-                self.owner.check-cmd();
+                self.owner.check-cmd(+@!noa);
             };
         }
         unless &!optcheck.defined {
@@ -402,7 +399,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
             for @!styles -> $style {
                 @sorted[%order{$style.key.Str}] = $style;
             }
-            @!styles = @sorted;   
+            @!styles = @sorted;
         } elsif +@order == 0 && +@!styles == 0 {
             &ga-raise-error('Set the :@order, styles for parser!');
         }
@@ -416,7 +413,10 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
 
     method ignore() {
         @!noa.push(
-            my $a = Argument.new( index => $!noaIndex++, value => $!arg, )
+            my $a = Argument.new(
+                index => $!noaIndex++,
+                value => $!arg,
+            )
         );
         $a;
     }
@@ -531,7 +531,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         my $needhelp = $!autohv && &check-if-need-autohv($!owner);
 
         Debug::debug("** {$needhelp ?? "Skip b" !! "B"}roadcast the MAIN NonOption");
-        
+
         if ! $needhelp {
             #| we don't want skip any other MAINs, so we using $!mrh skip the set-success method
             self.publish: self.type.contextprocesser.new( handler => self.handler.mrh.reset(),
@@ -560,7 +560,7 @@ class PreParser does Parser is export {
     }
 
     submethod TWEAK() {
-        self.handler.orh = class :: does ResultHandler {
+        $!handler.orh = class :: does ResultHandler {
             method skip-next-arg() {
                 $!skiparg = True;
                 self;
@@ -578,7 +578,7 @@ class PreParser does Parser is export {
                 self;
             }
         }.new;
-        &!cmdcheck = sub (\self) { }; 
+        &!cmdcheck = sub (\self) { };
     }
 }
 
@@ -669,7 +669,7 @@ class Parser2 does Parser is export {
         &!cmdcheck = sub (\self) {
             self.handler.orh.setOVS();
             self.owner.check();
-            self.owner.check-cmd();
+            self.owner.check-cmd(self.noa.elems);
         };
         &!optcheck = sub (\self) { };
     }
