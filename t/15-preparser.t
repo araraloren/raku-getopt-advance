@@ -29,7 +29,7 @@ $preos.insert-main(
 my $ret = getopt(["-w", "weak", "-p", "-c", "42", "-q"], $preos, parser => &ga-pre-parser);
 
 ok $preos<p>, "set pre option ok";
-is $preos<w>, "weak", "set weak to \"weak\" ok";
+is $preos<w>, "weak", 'set weak to "weak" ok';
 is $ret.noa, < -c 42 -q >, "get left command line argument";
 is ?$preos.get-cmd("pre").success, False, "it's ok we not set cmd `pre`";
 
