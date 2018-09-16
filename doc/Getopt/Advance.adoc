@@ -419,7 +419,7 @@ And use `:exists` check if the option exists.
 
 === Method of option
 
-* new-from-optstring(Str $optstring is copy)
+* from-optstring(Str $optstring is copy)
 +
 This method can convert the traditional option string, and create an OptionSet
 contain options descripte by that string.
@@ -609,6 +609,10 @@ Check `radio`, `multi` group and non-optional option.
 * annotation(::?CLASS::D:)
 +
 Use `Terminal::Table` format help message, and return it as an array.
+
+* merge(::?CLASS::D: ::?CLASS:D $os) of ::?CLASS
++
+Merge the `Option`s and `NonOption`s of `$os` to current `OptionSet`.
 
 * clone(*%_)
 +

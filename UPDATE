@@ -1,6 +1,18 @@
 
 = UPDATE LOG
 
+* 2018-09-04
+
+    Fix the signature error of `Cmd`.
+
+* 2018-08-25
+
+    Add a method `merge` to `OptionSet`.
+
+* 2018-07-06
+
+    Replace the method new-from-optstring with from-optstring.
+
 * 2018-07-05
 
     Add value attribute to `pos`(NonOption::Pos), it will be set when `pos`(NonOption::Pos) matched.

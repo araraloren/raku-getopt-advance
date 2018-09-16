@@ -182,7 +182,7 @@ class OptionSet is export {
         $optstring ~~ s:g/(\w)\:/$0=s;/;
         self.append($optstring);
     }
-
+    
     #| methods for options
 
     method keys(::?CLASS::D:) {
@@ -706,9 +706,3 @@ sub wrap-command(OptionSet $os, $cmd, @args is copy = @*ARGS, :&tweak, :$async, 
     }
     return run($cmd, |$ret.noa, |%args);
 }
-
-=begin pod
-
-sdakjd
-
-=end pod
