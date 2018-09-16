@@ -10,17 +10,17 @@ class NonOptionInfo does Info {
     has $.opt;
 
     method name() { $!optname; }
-    
+
     method check(Message $msg) {
         &!check($msg.style);
     }
 
-    method process($data) { $data.process($!opt); }                
+    method process($data) { $data.process($!opt); }
 }
 
 role NonOption does RefOptionSet does Subscriber {
     has Str  $.name;
-    has Any  $.value; #| for main is return value, for pos is noa, for cmd is nothing
+    has Any  $.value; #| return value if callback
     has Supplier $.supplier = Supplier.new;
     has $.index;
     has &!callback;

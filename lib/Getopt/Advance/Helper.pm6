@@ -157,9 +157,12 @@ multi sub ga-helper($optset, $outfh, *%args) is export {
 
     require Terminal::Table <&array-to-table>;
 
-    my @annotation = &array-to-table($helper.annotation(), style => 'none');
+    my @annotation = $helper.annotation();
 
-    $outfh.say(.join(" ") ~ "\n") for @annotation;
+    if @annotation.elems > 0 {
+        @annotation = &array-to-table(@annotation, style => 'none');
+        $outfh.say(.join(" ") ~ "\n") for @annotation;
+    }
 }
 
 multi sub ga-helper(@optset, $outfh, *%args) is export {
@@ -176,9 +179,12 @@ multi sub ga-helper(@optset, $outfh, *%args) is export {
         require Terminal::Table <&array-to-table>;
 
         for @helpers -> $helper {
-            my @annotation = &array-to-table($helper.annotation(), style => 'none');
+            my @annotation = $helper.annotation();
 
-            $outfh.say(.join(" ") ~ "\n") for @annotation;
+            if @annotation.elems > 0 {
+                @annotation = &array-to-table(@annotation, style => 'none');
+                $outfh.say(.join(" ") ~ "\n") for @annotation;
+            }
         }
     }
 }
@@ -189,6 +195,7 @@ sub ga-helper-impl($optset) is export {
     my @cmd = $optset.get-cmd().values;
     my %pos;
 
+    Debug::debug("Call ga-helper-impl generate Helper object.");
     for $optset.get-pos().values -> $pos {
         %pos{
             $pos.index ~~ WhateverCode ??

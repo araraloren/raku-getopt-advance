@@ -395,7 +395,6 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         if +@order > 0 {
             my (%order, @sorted);
             %order{ @order } = 0 ...^ +@order;
-            Debug::debug("Sort the styles with >> {@order.join(" - ")}");
             for @!styles -> $style {
                 @sorted[%order{$style.key.Str}] = $style;
             }
@@ -403,6 +402,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         } elsif +@order == 0 && +@!styles == 0 {
             &ga-raise-error('Set the :@order, styles for parser!');
         }
+        Debug::debug("Style: {@!styles>>.key.join(" > ")}");
         self;
     }
 
@@ -432,7 +432,6 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
     method CALL-ME( $!owner ) {
         my @delaypos;
 
-        Debug::debug("Call parser, got arguments '{@!args.join(",")}' from input");
         while $!index < $!count {
             ($!arg, my $actions) = ( @!args[$!index], self.type.optactions.new );
 
@@ -449,7 +448,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                     if $style.defined {
                         Debug::debug("** Start broadcast {$style.key.Str} style option");
                         $actions.broadcast-option(&!is-next-arg-available(self) ?? &get-option-arg !! Callable, |$style);
-                        Debug::debug("** End broadcast {$style.key.Str} style option");
+                        Debug::debug("** End");
                     }
                 }
                 $!handler.orh.handle(self);
@@ -474,7 +473,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                     Debug::debug("** Broadcast a bsd style option [{$!arg.comb.join("|")}]");
                     self.publish: $bsdmc;
                     self.handler.brh.handle(self);
-                    Debug::debug("** End bsd style");
+                    Debug::debug("** End");
                 }
 
                 #| if not bsd style or it matched failed
@@ -500,7 +499,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                 ]
             );
             self.handler.crh.handle(self);
-            Debug::debug("** End broadcast the CMD NonOption");
+            Debug::debug("** End");
             Debug::debug("** Begin POS and WHATEVERPOS NonOption");
             for @!noa -> $noa {
                 self.publish: self.type.contextprocesser.new( handler => self.handler.prh.reset(),
@@ -521,7 +520,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                 );
                 self.handler.prh.handle(self);
             }
-            Debug::debug("** End broadcast POS and WHATEVERPOS NonOption");
+            Debug::debug("** End");
         }
         #| check the cmd and pos@0
         Debug::debug(" + Check the cmd and pos@0");
@@ -572,7 +571,7 @@ class PreParser does Parser is export {
                     Debug::debug("Will skip the next arguments");
                     $parser.skip() if self.skiparg();
                 } else {
-                    Debug::debug(" - Ignore current option: {$parser.arg} !");
+                    Debug::debug("Ignore current option: {$parser.arg} !");
                     $parser.ignore();
                 }
                 self;
@@ -583,6 +582,7 @@ class PreParser does Parser is export {
 }
 
 sub ga-parser($parserobj, @args, $optset, *%args) is export {
+    Debug::debug("Call ga-parser, got arguments '{@args.join(",")}' from input");
     $parserobj.init(@args);
     $optset.set-parser($parserobj);
     $parserobj.($optset);
@@ -601,6 +601,7 @@ sub ga-parser($parserobj, @args, $optset, *%args) is export {
 }
 
 sub ga-pre-parser($parserobj, @args, $optset, *%args) is export {
+    Debug::debug("Call ga-pre-parser, got arguments '{@args.join(",")}' from input");
     $parserobj.init(@args);
     $optset.set-parser($parserobj);
     $parserobj.($optset);
@@ -676,6 +677,7 @@ class Parser2 does Parser is export {
 }
 
 sub ga-parser2($parserobj, @args, $optset, *%args) is export {
+    Debug::debug("Call ga-parser2, got arguments '{@args.join(",")}' from input");
     $parserobj.init(@args);
     $optset.set-parser($parserobj);
     $parserobj.($optset);

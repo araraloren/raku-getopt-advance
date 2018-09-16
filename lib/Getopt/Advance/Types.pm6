@@ -1,5 +1,6 @@
 
 use Getopt::Advance::Utils;
+use Getopt::Advance::Exception;
 
 unit module Getopt::Advance::Types;
 
@@ -109,7 +110,7 @@ class TypesManager does RefOptionSet is export {
 
     method registe(Str:D $name, Mu:U $type --> ::?CLASS:D) {
         unless $type.^lookup("type") {
-            die "Implement a type method as the identification of type {$type.^name}";
+            &ga-raise-error("Implement a type method as the identification of type {$type.^name}");
         }
         if not self.has($name) {
             %!types{$name} = $type;
@@ -120,10 +121,10 @@ class TypesManager does RefOptionSet is export {
     sub parseOptString(Str $str) {
         my $action = Actions::Option.new;
         unless Grammar::Option.parse($str, :actions($action)) {
-            die "Unable to parse option string: {$str}!";
+            &ga-raise-error("Unable to parse option string: {$str}!");
         }
 		if $action.opt-deactivate && $action.opt-type ne "b" {
-			die "Deactivate style only support boolean option: {$str}!";
+			&ga-raise-error("Deactivate style only support boolean option: {$str}!");
 		}
         return $action;
     }
@@ -134,7 +135,7 @@ class TypesManager does RefOptionSet is export {
         my %realargs;
 
         unless self.has($setting.opt-type) {
-           die "Invalid option type: {$setting.opt-type}";
+           &ga-raise-error("Invalid option type: {$setting.opt-type}");
         }
 
         if %args<owner>:exists {

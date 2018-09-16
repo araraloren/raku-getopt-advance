@@ -9,7 +9,6 @@ class OptionInfo {
     has $.optref;
     has $.long;
     has $.short;
-    has $.type;
 
     method name() {
         self.long eq "" ?? self.short() !! self.long();
@@ -25,7 +24,7 @@ role Group does RefOptionSet {
         @!infos = [];
         for @options {
             @!infos.push(
-                OptionInfo.new(optref => $_, long => .long, short => .short, type => .type)
+                OptionInfo.new(optref => $_, long => .long, short => .short)
             );
         }
     }
@@ -39,18 +38,18 @@ role Group does RefOptionSet {
         $usage;
     }
 
-    method has(Str:D $name, Str:D $type = WhateverType --> False) {
+    method has(Str:D $name --> False) {
         for @!infos {
-            if self.owner.types.innername($type) eq .type && ($name eq .long || $name eq .short) {
+            if $name eq .long || $name eq .short {
                 return True;
             }
         }
     }
 
-    method remove(Str:D $name, Str:D $type = WhateverType --> False) {
+    method remove(Str:D $name--> False) {
         for ^+@!infos -> $index {
             given @!infos[$index] {
-                if self.owner.types.innername($type) eq .type && ($name eq .long || $name eq .short) {
+                if $name eq .long || $name eq .short {
                     @!infos.splice($index, 1);
                     return True;
                 }

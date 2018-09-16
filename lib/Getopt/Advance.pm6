@@ -64,6 +64,7 @@ multi sub getopt(
 
     my $ret = ReturnValue;
 
+    #| Using the predefined parser if the sub is built-in sub
     my $realparserclass = do {
         if &parser === &ga-parser {
             Parser;
@@ -91,9 +92,13 @@ multi sub getopt(
 
     my $optset;
 
+    &ga-raise-error('Need OptionSet!!!') if +@optsets == 0;
+
     loop (my $index = 0; $index < +@optsets; $index += 1) {
 
         $optset := @optsets[$index];
+
+        Debug::debug(">>> Process OptionSet = {$optset.WHICH}");
 
         try {
             $ret = &parser(
@@ -118,7 +123,7 @@ multi sub getopt(
                         &showhelp(@optsets);
                         .throw;
                     }
-                    Debug::debug("Will try next OptionSet.");
+                    Debug::debug(">>> Match failed, will try next OptionSet.");
                 }
 
                 when X::GA::WantPrintHelper {
@@ -248,7 +253,7 @@ class OptionSet is export {
         @!options.splice($find, 1);
         for (@!radio, @!multi) -> @groups {
             for @groups -> $group {
-                return True if $group.remove($name, $type);
+                return True if $group.remove($name);
             }
         }
         return True;
@@ -701,3 +706,9 @@ sub wrap-command(OptionSet $os, $cmd, @args is copy = @*ARGS, :&tweak, :$async, 
     }
     return run($cmd, |$ret.noa, |%args);
 }
+
+=begin pod
+
+sdakjd
+
+=end pod

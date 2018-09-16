@@ -39,13 +39,7 @@ sub ga-non-option-error(Str $msg) is export {
     .throw;
 }
 
-class X::GA::OptionValueInvalid is X::GA::Exception { }
-
-sub ga-invalid-value(Str $msg) is export {
-    X::GA::OptionValueInvalid
-    .new(message => $msg)
-    .throw;
-}
+constant &ga-invalid-value is export = &ga-option-error;
 
 class X::GA::Error is X::GA::Exception { }
 
