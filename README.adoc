@@ -26,6 +26,48 @@ non-option argument, it provide `main`、`pos` and `cmd` feature.
 
 = Usage
 
+== Try it
+
+=== Normal version
+
+[source,perl6]
+---------------
+use Getopt::Advance;
+
+my OptionSet $os .= new();
+
+$os.push(
+    "h|help=b",
+    "print help message.",
+    callback => sub ($, $) {
+        say "The h option is set by user";
+    });
+
+&getopt($os);
+say "Exit!";
+---------------
+
+=== With react
+
+[source,perl6]
+---------------
+use Getopt::Advance;
+
+my OptionSet $os .= new();
+
+$os.push("h|help=b", "print help message.");
+
+react {
+    whenever $os.Supply("h") {
+        say "The h option is set by user";
+    }
+    whenever &getopt($os) {
+        say "Exit!";
+        done;
+    }
+}
+---------------
+
 == Document
 
 link:doc/Getopt/Advance.adoc[Getopt-Advance]
@@ -59,21 +101,21 @@ link:sample/find-file.p6[find-file]
 -----------------------
 $ ./find-file.p6
 Usage:
-./find-file.p6 <directory>  [-h|--help] [-v|--version] [-?] [--size=<integer>] [-d] [-l] [-f]  *@args
+./sample/find-file.p6 [directory] OPTIONs
 
--h|--help         print this help.
+-d               specify file type to directory
 
--v|--version      print program version.
+-v|--version     print program version.
 
--?                same as -h.
+--size=<integer> the minimum size limit of file.
 
---size=<integer>  the minimum size limit of file.
+-?               same as -h.
 
--d                specify file type to directory
+-h|--help        print this help.
 
--l                specify file type to symlink
+-f               specify file type to normal file
 
--f                specify file type to normal file
+-l               specify file type to symlink
 -----------------------
 
 .find
@@ -96,6 +138,5 @@ The MIT License (MIT).
 
 = TODO
 
-* add option can reference variable.
-* add callback only mode
-* let user set option name autohv
+* Update documents
+* Update subs feature

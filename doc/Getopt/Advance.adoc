@@ -9,7 +9,7 @@ Getopt::Advance - An advance command line option parsing tools.
 #!/usr/bin/env perl6
 
 use Getopt::Advance;
-use Getopt::Advance::Helper;
+use Getopt::Advance::Parser;
 use Getopt::Advance::Exception;
 
 my @files = [];
@@ -50,6 +50,7 @@ $optset.push(
 );
 $optset.insert-main(
     sub main($optset, @args) {
+        return 0 if $optset<help> || $optset<version>;
         if $optset.get-pos('directory', 0).?success {
             @args.shift;
         } else {
@@ -64,7 +65,8 @@ $optset.insert-main(
         }
     }
 );
-&getopt($optset, :autohv, helper => &ga-helper2);
+
+&getopt($optset, :autohv, parser => &ga-parser2);
 
 sub find($dir) {
     for $dir.dir() -> $f {
@@ -81,37 +83,38 @@ sub find($dir) {
 [source,sh]
 -------------------
 Usage:
-    ./find-file.p6 <directory>  [-h|--help] [-v|--version] [-?] [--size=<integer>] [-d] [-l] [-f]  *@args
+./sample/find-file.p6 [directory] OPTIONs
 
-    -h|--help         print this help.
+-d               specify file type to directory
 
-    -v|--version      print program version.
+-v|--version     print program version.
 
-    -?                same as -h.
+--size=<integer> the minimum size limit of file.
 
-    --size=<integer>  the minimum size limit of file.
+-?               same as -h.
 
-    -d                specify file type to directory
+-h|--help        print this help.
 
-    -l                specify file type to symlink
+-f               specify file type to normal file
 
-    -f                specify file type to normal file
+-l               specify file type to symlink
 -------------------
 
 = DESCRIPTION
 
-`Getopt::Advance` is a powerful command line option parsing module, it support many
-style such as: `unix-style`、`gnu-style`、`bsd-style`.etc. It support `Hash`、`Array`
-option compared to traditional command line tools. In addition, it also support
-`radio`、`multi` group mechanism which can manage option realtionship. And to handle
-non-option argument, it provide `main`、`pos` and `cmd` feature.
+`Getopt::Advance` is a powerful command line option parsing tool, it support many style such as: **unix-style**,
+**gnu-style** etc.
+It can support `Option` have type such as `Integer`, `Array`, `Hash` compared to traditional command line
+tools.
+And for non-option argument, it provide `NonOption` feature.
+In addition, it also provide `Multi` and `Radio` which can manager multi options realtionship.
 
 = USAGE
 
 == OptionSet
 
 `OptionSet` is a set of `Option` as the literal mean. Provide interface manage your
-`Option`.
+`Options`.
 
 === new
 
@@ -416,7 +419,7 @@ And use `:exists` check if the option exists.
 
 === Method of option
 
-* new-from-optstring(Str $optstring is copy)
+* from-optstring(Str $optstring is copy)
 +
 This method can convert the traditional option string, and create an OptionSet
 contain options descripte by that string.
@@ -606,6 +609,10 @@ Check `radio`, `multi` group and non-optional option.
 * annotation(::?CLASS::D:)
 +
 Use `Terminal::Table` format help message, and return it as an array.
+
+* merge(::?CLASS::D: ::?CLASS:D $os) of ::?CLASS
++
+Merge the `Option`s and `NonOption`s of `$os` to current `OptionSet`.
 
 * clone(*%_)
 +
