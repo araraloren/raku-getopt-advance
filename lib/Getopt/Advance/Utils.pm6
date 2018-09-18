@@ -172,13 +172,21 @@ sub set-autohv(Str:D $help, Str:D $version) is export {
     @autohv-opt = ($help, $version);
 }
 
-sub check-if-need-autohv($optset) is export {
+sub get-autohv($optset) is export {
     given @autohv-opt {
-        &ga-raise-error("Need the option " ~ .[0] ~ " for autohv")
-            if ! $optset.has(.[0]);
-        &ga-raise-error("Need the option " ~ .[1] ~ " for autohv")
-            if ! $optset.has(.[1]);
+        my ($f, $s) = ($optset.has(.[0], 'b'), $optset.has(.[1], 'b'));
 
-        return $optset{.[0]} || $optset{.[1]};
+        if !$f && !$s {
+            &ga-raise-error("Need the boolean option " ~ .[0] ~ " or " ~ .[1] ~ " for autohv");
+        }
+
+        my $fs = $f ?? $optset{.[0]} !! False;
+        my $ss = $s ?? $optset{.[1]} !! False;
+
+        return [ $fs, $ss ];
     }
+}
+
+sub check-if-need-autohv($optset) is export {
+    [||] &get-autohv($optset);
 }

@@ -90,6 +90,12 @@ multi sub getopt(
         }
     }
 
+    sub showVersion() {
+        if $version ne "" {
+            &ga-version($version, $stderr);
+        }
+    }
+
     my $optset;
 
     &ga-raise-error('Need OptionSet!!!') if +@optsets == 0;
@@ -143,8 +149,15 @@ multi sub getopt(
         }
     }
 
-    if $autohv && &check-if-need-autohv($optset) {
-        &showhelp([ $optset, ]);
+    if $autohv {
+        given &get-autohv($optset) {
+            if .[0] {
+                &showhelp([ $optset, ])
+            }
+            if .[1] {
+                &showVersion();
+            }
+        }
     }
 
     return $ret;
@@ -182,7 +195,7 @@ class OptionSet is export {
         $optstring ~~ s:g/(\w)\:/$0=s;/;
         self.append($optstring);
     }
-    
+
     #| methods for options
 
     method keys(::?CLASS::D:) {

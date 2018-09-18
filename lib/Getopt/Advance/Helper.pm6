@@ -220,3 +220,7 @@ sub ga-helper-impl($optset) is export {
         radio           => $optset.radio,
     );
 }
+
+sub ga-version($version, $outfh) is export {
+    $outfh.print($version) if $version ne "";
+}
