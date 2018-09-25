@@ -84,18 +84,19 @@ role ContextProcesser does Message is export {
             Debug::debug("- Skip");
         } else {
             Debug::debug("- Match <-> {$o.usage}");
-            my $matched = True;
+            my ($matched, $skip) = (True, False);
             for @!contexts -> $context {
                 if ! $context.success {
                     if $context.match(self, $o) {
                         $context.set(self, $o);
+                        $skip ||= $context.canskip;
                     } else {
                         $matched = False;
                     }
                 }
             }
             if $matched {
-                if self.style != Style::ZIPARG && $o.?need-argument {
+                if $skip {
                     Debug::debug("  - Call handler to shift argument.");
                     $!handler.skip-next-arg();
                 }
