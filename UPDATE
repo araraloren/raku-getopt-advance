@@ -1,6 +1,10 @@
 
 = UPDATE LOG
 
+* 2018-09-25
+
+    Fix issue about skip argument.
+
 * 2018-09-18
 
     Fix some issue about autohv.
