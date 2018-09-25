@@ -107,12 +107,12 @@ class OptionActions is export {
         my @guess;
 
         if $!value.defined {
-            @guess.push([ $!value === False ?? False !! True, sub { $!value } ]);
+            @guess.push([ $!value === False ?? False !! True, sub { $!value }, False ]);
         } elsif &getarg.defined {
-            @guess.push([ True,  &getarg ]);
-            @guess.push([ False, ParserRT ]);
+            @guess.push([ True,  &getarg, True]);
+            @guess.push([ False, ParserRT, False]);
         } else {
-            @guess.push([ False, ParserRT ]);
+            @guess.push([ False, ParserRT, False]);
         }
         @guess;
     }
@@ -155,7 +155,8 @@ class OptionActions is export {
                             prefix => $!prefix,
                             name   => $!name,
                             hasarg => $g.[0],
-                            getarg  => $g.[1],
+                            getarg => $g.[1],
+                            canskip=> $g.[2],
                         )
                     ],
                 );
@@ -177,7 +178,8 @@ class OptionActions is export {
                             prefix => $!prefix,
                             name   => $!name,
                             hasarg => $g.[0],
-                            getarg  => $g.[1],
+                            getarg => $g.[1],
+                            canskip=> $g.[2],
                         )
                     ]
                 );
@@ -198,7 +200,8 @@ class OptionActions is export {
                             prefix => $!prefix,
                             name   => $!name,
                             hasarg => $g.[0],
-                            getarg  => $g.[1],
+                            getarg => $g.[1],
+                            canskip=> $g.[2],
                         )
                     ]
                 );
@@ -218,7 +221,8 @@ class OptionActions is export {
                         prefix => $!prefix,
                         name   => $!name.substr(0, 1),
                         hasarg => True,
-                        getarg  => sub { $!name.substr(1); },
+                        getarg => sub { $!name.substr(1); },
+                        canskip=> False,
                     )
                 ]
             );
@@ -237,9 +241,10 @@ class OptionActions is export {
                             prefix => $!prefix,
                             name   => $opt,
                             hasarg => False,
-                            getarg  => do {
+                            getarg => do {
                                 ($!value === False) ?? (ParserRF) !! (ParserRT);
                             },
+                            canskip=> False,
                         )
                 );
             }
@@ -250,7 +255,8 @@ class OptionActions is export {
                         prefix => $!prefix,
                         name   => @opts[*-1],
                         hasarg => $g.[0],
-                        getarg  => $g.[1],
+                        getarg => $g.[1],
+                        canskip=> $g.[2],
                     )
                 );
                 self.publish: self.type.contextprocesser.new(
@@ -467,6 +473,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                                 name    => $_,
                                 hasarg  => False,
                                 getarg  => ParserRT,
+                                canskip => False,
                             ) for $!arg.comb();
                         ]
                     );
@@ -638,12 +645,13 @@ class SaveContextProcesser is Getopt::Advance::Utils::ContextProcesser {
             Debug::debug("- Skip");
         } else {
             Debug::debug("- Match <-> {$o.usage}");
-            my $matched = True;
+            my ($matched, $skip) = (True, False);
             for self.contexts -> $context {
                 if ! $context.success {
                     if $context.match(self, $o) {
                         if (my $r = $context.set(self, $o)) ~~ OptionValueSetter {
                             self.handler.saveOVS($r);
+                            $skip ||= $context.canskip;
                         }
                     } else {
                         $matched = False;
@@ -651,7 +659,7 @@ class SaveContextProcesser is Getopt::Advance::Utils::ContextProcesser {
                 }
             }
             if $matched {
-                if $o.?need-argument {
+                if $skip {
                     Debug::debug("  - Call handler to shift argument.");
                     self.handler.skip-next-arg();
                 }
