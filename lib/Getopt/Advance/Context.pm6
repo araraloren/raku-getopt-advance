@@ -27,6 +27,7 @@ class TheContext is export {
         has $.name;
         has $.hasarg;
         has &.getarg;
+        has $.canskip;
 
         method match(ContextProcesser $cp, $o) {
             my $name-r = do given $!prefix {
@@ -59,7 +60,7 @@ class TheContext is export {
         method set(ContextProcesser $cp, $o) {
             self.mark-matched();
             $o.set-value(&!getarg(), :callback);
-            Debug::debug("    - OK! Set value {&!getarg()} for [{$o.usage}], shift args: {$o.need-argument}");
+            Debug::debug("    - OK! Set value {&!getarg()} for [{$o.usage}], shift args: {self.canskip}");
         }
 
         method gist() { "\{{$!prefix}, {$!name}{$!hasarg ?? ":" !! ""}\}" }
@@ -70,7 +71,7 @@ class TheContext is export {
             self.mark-matched();
             Debug::debug("    - OK! Delay set value {self.getarg()()} for [{$o.usage}], shift args: {$o.need-argument}");
             OptionValueSetter.new(
-                optref => $o, 
+                optref => $o,
                 value  => self.getarg()(),
             );
         }
