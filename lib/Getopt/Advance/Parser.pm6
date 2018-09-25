@@ -146,7 +146,7 @@ class OptionActions is export {
         # skip option like '-f'
         if self.islike(:long)  {
             for self!guess-option(&getarg) -> $g {
-                self.publish: self.type.contextprocesser.new(
+                self.publish: self.type.contextprocessor.new(
                     id => $messageid++,
                     handler => $!handler,
                     style => Style::LONG,
@@ -169,7 +169,7 @@ class OptionActions is export {
         # skip option like '-f'
         if self.islike(:xopt) {
             for self!guess-option(&getarg) -> $g {
-                self.publish: self.type.contextprocesser.new(
+                self.publish: self.type.contextprocessor.new(
                     id => $messageid++,
                     handler => $!handler,
                     style => Style::XOPT,
@@ -191,7 +191,7 @@ class OptionActions is export {
     multi method broadcast-option(&getarg, :$short!) {
         if self.islike(:short) {
             for self!guess-option(&getarg) -> $g {
-                self.publish: self.type.contextprocesser.new(
+                self.publish: self.type.contextprocessor.new(
                     id => $messageid++,
                     handler => $!handler,
                     style => Style::SHORT,
@@ -212,7 +212,7 @@ class OptionActions is export {
     # generate option like '[-|--]ab' ==> '[-|--]a b, that mean b is argument of option a
     multi method broadcast-option(&getarg, :$ziparg!) {
         if self.islike(:ziparg) {
-            self.publish: self.type.contextprocesser.new(
+            self.publish: self.type.contextprocessor.new(
                 id => $messageid++,
                 handler => $!handler,
                 style => Style::ZIPARG,
@@ -259,7 +259,7 @@ class OptionActions is export {
                         canskip=> $g.[2],
                     )
                 );
-                self.publish: self.type.contextprocesser.new(
+                self.publish: self.type.contextprocessor.new(
                     id => $messageid++,
                     handler => $!handler,
                     style => Style::COMB,
@@ -283,7 +283,7 @@ role ResultHandler is export {
         self;
     }
 
-    #| will called after the ContextProcesser process the thing
+    #| will called after the ContextProcessor process the thing
     method handle($parser) { self; }
 
     #| when option want skip the argument, call this method, default do nothing
@@ -297,7 +297,7 @@ role TypeOverload is export {
     has $.poscontext is rw;
     has $.cmdcontext is rw;
     has $.maincontext is rw;
-    has $.contextprocesser is rw;
+    has $.contextprocessor is rw;
 }
 
 role ResultHandlerOverload is export {
@@ -347,7 +347,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         poscontext => TheContext::Pos,
         cmdcontext => TheContext::NonOption,
         maincontext=> TheContext::NonOption,
-        contextprocesser => Getopt::Advance::Utils::ContextProcesser, #| seems like a bug, need module package
+        contextprocessor => Getopt::Advance::Utils::ContextProcessor, #| seems like a bug, need module package
     );
     has $.handler = ResultHandlerOverload.new;
 
@@ -446,7 +446,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
             Debug::debug("Process the argument '{$!arg}'\@{$!index}");
 
             if self.type.optgrammar.parse($!arg, :$actions) {
-                #| the action need handler pass it to ContextProcesser
+                #| the action need handler pass it to ContextProcessor
                 $actions.set-typeoverload(self.type);
                 $actions.set-handler(self.handler.orh.reset());
                 $actions.set-publisher(self);
@@ -464,7 +464,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                 #| if we need suppot bsd style
                 if $!bsd-style {
                     #| reset the bsd style handler
-                    $bsdmc = self.type.contextprocesser.new( handler => self.handler.brh.reset(),
+                    $bsdmc = self.type.contextprocessor.new( handler => self.handler.brh.reset(),
                         style => Style::BSD,
                         id => $messageid++,
                         contexts => [
@@ -498,7 +498,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
         #| last, we should emit the CMD and MAIN
         if +@!noa > 0 {
             Debug::debug("** Broadcast the CMD NonOption");
-            self.publish: self.type.contextprocesser.new( handler => self.handler.crh.reset(),
+            self.publish: self.type.contextprocessor.new( handler => self.handler.crh.reset(),
                 style => Style::CMD,
                 id => $messageid++,
                 contexts => [
@@ -509,7 +509,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
             Debug::debug("** End");
             Debug::debug("** Begin POS and WHATEVERPOS NonOption");
             for @!noa -> $noa {
-                self.publish: self.type.contextprocesser.new( handler => self.handler.prh.reset(),
+                self.publish: self.type.contextprocessor.new( handler => self.handler.prh.reset(),
                     style => Style::WHATEVERPOS,
                     id => $messageid++,
                     contexts => [
@@ -518,7 +518,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
                 );
                 self.handler.prh.handle(self);
                 #| maybe a POS
-                self.publish: self.type.contextprocesser.new( handler => self.handler.prh.reset(),
+                self.publish: self.type.contextprocessor.new( handler => self.handler.prh.reset(),
                     style => Style::POS,
                     id => $messageid++,
                     contexts => [
@@ -540,7 +540,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
 
         if ! $needhelp {
             #| we don't want skip any other MAINs, so we using $!mrh skip the set-success method
-            self.publish: self.type.contextprocesser.new( handler => self.handler.mrh.reset(),
+            self.publish: self.type.contextprocessor.new( handler => self.handler.mrh.reset(),
                 style => Style::MAIN,
                 id => $messageid++,
                 contexts => [
@@ -638,7 +638,7 @@ class SaveOVSHandler is OptionResultHandler {
     }
 }
 
-class SaveContextProcesser is Getopt::Advance::Utils::ContextProcesser {
+class SaveContextProcessor is Getopt::Advance::Utils::ContextProcessor {
     method process($o) {
         Debug::debug("== message {self.id}: [{self.style}|{self.contexts>>.gist.join(" + ")}]");
         if self.matched() {
@@ -672,7 +672,7 @@ class SaveContextProcesser is Getopt::Advance::Utils::ContextProcesser {
 
 class Parser2 does Parser is export {
     submethod TWEAK() {
-        self.type.contextprocesser = SaveContextProcesser;
+        self.type.contextprocessor = SaveContextProcessor;
         self.type.optcontext = TheContext::DelayOption;
         self.handler.orh = SaveOVSHandler.new;
         &!cmdcheck = sub (\self) {

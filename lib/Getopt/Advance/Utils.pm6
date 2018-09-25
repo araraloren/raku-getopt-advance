@@ -22,7 +22,7 @@ role Publisher { ... }
 #| subscriber
 role Subscriber { ... }
 
-role ContextProcsser { ... }
+role ContextProcessor { ... }
 
 role RefOptionSet { ... }
 
@@ -64,7 +64,7 @@ role Subscriber is export {
     method subscribe(Publisher $p) { ... }
 }
 
-role ContextProcesser does Message is export {
+role ContextProcessor does Message is export {
     has $.style;
     has @.contexts;
     has $.handler;

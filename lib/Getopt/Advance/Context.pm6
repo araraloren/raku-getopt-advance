@@ -14,9 +14,9 @@ role Context is export {
         $!success = True;
     }
 
-    method match(ContextProcesser, $o) { ... }
+    method match(ContextProcessor, $o) { ... }
 
-    method set(ContextProcesser, $o) { ... }
+    method set(ContextProcessor, $o) { ... }
 
     method gist() { ... }
 }
@@ -29,7 +29,7 @@ class TheContext is export {
         has &.getarg;
         has $.canskip;
 
-        method match(ContextProcesser $cp, $o) {
+        method match(ContextProcessor $cp, $o) {
             my $name-r = do given $!prefix {
                     when Prefix::LONG {
                         $o.long eq $!name;
@@ -57,7 +57,7 @@ class TheContext is export {
             return $name-r && $value-r;
         }
 
-        method set(ContextProcesser $cp, $o) {
+        method set(ContextProcessor $cp, $o) {
             self.mark-matched();
             $o.set-value(&!getarg(), :callback);
             Debug::debug("    - OK! Set value {&!getarg()} for [{$o.usage}], shift args: {self.canskip}");
@@ -67,7 +67,7 @@ class TheContext is export {
     }
 
     class DelayOption is Option {
-        method set(ContextProcesser $cp, $o) {
+        method set(ContextProcessor $cp, $o) {
             self.mark-matched();
             Debug::debug("    - OK! Delay set value {self.getarg()()} for [{$o.usage}], shift args: {$o.need-argument}");
             OptionValueSetter.new(
@@ -81,7 +81,7 @@ class TheContext is export {
         has @.argument;
         has $.index;
 
-        method match(ContextProcesser $cp, $no) {
+        method match(ContextProcessor $cp, $no) {
             my $style-r = $no.match-style($cp.style);
 
             Debug::debug("  - Style => { $style-r ?? 'OK' !! 'Failed' }");
@@ -122,7 +122,7 @@ class TheContext is export {
             return $call-r;
         }
 
-        method set(ContextProcesser $cp, $no) { }
+        method set(ContextProcessor $cp, $no) { }
 
         method gist() {
             my $gist = "\{";
