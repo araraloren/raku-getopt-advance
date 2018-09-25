@@ -89,7 +89,7 @@ role ContextProcesser does Message is export {
                 if ! $context.success {
                     if $context.match(self, $o) {
                         $context.set(self, $o);
-                        $skip ||= $context.canskip;
+                        $skip ||= $context.?canskip;
                     } else {
                         $matched = False;
                     }
