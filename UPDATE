@@ -4,6 +4,7 @@
 * 2018-09-26
 
     Fix the issue that not clean the `@!noa` of Parser.
+    Fix the some method signature of Option.
 
 * 2018-09-25
 

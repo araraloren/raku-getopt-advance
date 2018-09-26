@@ -17,12 +17,12 @@ class OptionInfo does Info {
     has $.opt;
 
     method name() { $!optname; }
-    
+
     method check(Message $msg) {
         &!check($msg.style);
     }
 
-    method process($data) { $data.process($!opt); }                
+    method process($data) { $data.process($!opt); }
 }
 
 role Option does RefOptionSet does Subscriber {
@@ -65,7 +65,7 @@ role Option does RefOptionSet does Subscriber {
 
     method Supply { $!supplier.Supply; }
 
-    method set-value(Mu $value, Bool :$callback) {
+    method set-value(Any $value, Bool :$callback) {
         if $callback.so {
             &!callback(self, $value) if self.has-callback();
             $!supplier.emit([self.owner(), self, $value]);
@@ -120,7 +120,7 @@ role Option does RefOptionSet does Subscriber {
     }
 
     method reset-value {
-        self.set-value(Any);
+        self.set-value(self.default-value());
     }
 
     method reset-callback {
@@ -143,7 +143,7 @@ role Option does RefOptionSet does Subscriber {
         $name eq self.long || $name eq self.short;
     }
 
-    method match-value(Mu) { ... }
+    method match-value(Any) { ... }
 
     method lprefix { '--' }
 
@@ -200,7 +200,7 @@ class Option::Boolean does Option {
         }
     }
 
-    method set-value(Mu $value, Bool :$callback) {
+    method set-value(Any $value, Bool :$callback) {
         self.Option::set-value($value.so, :$callback);
     }
 
@@ -228,7 +228,7 @@ class Option::Boolean does Option {
 
     method need-argument(--> Bool) { False; }
 
-    method match-value(Mu:D $value) {
+    method match-value(Any:D $value) {
         return ! ( $!deactivate && $value.so );
     }
 
@@ -248,7 +248,7 @@ class Option::Integer does Option {
         }
     }
 
-    method set-value(Mu:D $value, Bool :$callback) {
+    method set-value(Any:D $value, Bool :$callback) {
         if $value ~~ Int {
             self.Option::set-value($value, :$callback);
         } elsif so +$value {
@@ -276,7 +276,7 @@ class Option::Integer does Option {
         INTEGER;
     }
 
-    method match-value(Mu:D $value) {
+    method match-value(Any:D $value) {
         $value ~~ Int || so +$value;
     }
 }
@@ -289,7 +289,7 @@ class Option::Float does Option {
         }
     }
 
-    method set-value(Mu:D $value, Bool :$callback) {
+    method set-value(Any:D $value, Bool :$callback) {
         if $value ~~ FatRat {
             self.Option::set-value($value, :$callback);
         } elsif so $value.FatRat {
@@ -317,7 +317,7 @@ class Option::Float does Option {
         FLOAT;
     }
 
-    method match-value(Mu:D $value) {
+    method match-value(Any:D $value) {
         $value ~~ FatRat || so $value.FatRat;
     }
 }
@@ -330,7 +330,7 @@ class Option::String does Option {
         }
     }
 
-    method set-value(Mu:D $value, Bool :$callback) {
+    method set-value(Any:D $value, Bool :$callback) {
         if $value ~~ Str {
             self.Option::set-value($value, :$callback);
         } elsif so ~$value {
@@ -358,7 +358,7 @@ class Option::String does Option {
         STRING;
     }
 
-    method match-value(Mu:D $value) {
+    method match-value(Any:D $value) {
         $value ~~ Str || so ~$value;
     }
 }
@@ -402,7 +402,7 @@ class Option::Array does Option {
         ARRAY;
     }
 
-    method match-value(Mu:D $value) {
+    method match-value(Any:D $value) {
         True;
     }
 }
@@ -422,7 +422,7 @@ class Option::Hash does Option {
     }
 
     # This actually is a push-value
-    method set-value(Mu:D $value, Bool :$callback) {
+    method set-value(Any:D $value, Bool :$callback) {
         my %hash = self.has-value() ?? %$!value !! Hash.new;
         if $value ~~ Pair {
             %hash.push($value);
@@ -512,7 +512,7 @@ class Option::Hash does Option {
         HASH;
     }
 
-    method match-value(Mu:D $value) {
+    method match-value(Any:D $value) {
         $value ~~ Pair || (try so $value.pairup) || Pair::Grammar.parse($value).so;
     }
 }
