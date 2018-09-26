@@ -1,6 +1,10 @@
 
 = UPDATE LOG
 
+* 2018-09-26
+
+    Fix the issue that not clean the `@!noa` of Parser.
+
 * 2018-09-25
 
     Fix issue about skip argument.

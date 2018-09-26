@@ -354,6 +354,7 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
     method init(@!args,  :@order) {
         $!noaIndex = $!index = 0;
         $!count = +@!args;
+        @!noa = [];
         unless &!is-next-arg-available.defined {
             &!is-next-arg-available = sub ( Parser $parser --> False ) {
                 given $parser {
