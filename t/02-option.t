@@ -3,7 +3,7 @@ use Test;
 use Getopt::Advance;
 use Getopt::Advance::Option;
 
-plan 28;
+plan 30;
 
 my OptionSet $optset .= new;
 
@@ -100,5 +100,8 @@ nok     $optset<q>, 'disable **quite** option ok';
 is      $optset<c>, 'clang++', 'set the **compiler** option ok';
 is      $optset<u>, Any, 'get any when option not exists';
 ok      $optset<?>, 'set the ? option ok';
+is      $optset.get('m').default-value, 'int main(void)', 'verify the default value';
+        $optset.get('m').reset-value;
+is      $optset.get('m').value, 'int main(void)', 'reset the default value ok';
 
 await $thr;
