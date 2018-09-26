@@ -2,7 +2,7 @@
 use Test;
 use Getopt::Advance;
 
-plan 10;
+plan 11;
 
 my OptionSet $common .= new;
 
@@ -31,8 +31,9 @@ $os1.insert-main(sub main1() {
 
 
 
-getopt(["merge", 1, "-a", "your", "-z", "a => 88"], $common.merge($os1));
+my $rv = getopt(["merge", 1, "-a", "your", "-z", "a => 88"], $common.merge($os1));
 
+is $rv.noa>>.value, < merge 1 >, "verify the noa ok";
 ok $common.has('h'), "merge ok";
 ok $common.has("a"), "merge ok";
 ok $common.has('b'), "merge ok";
