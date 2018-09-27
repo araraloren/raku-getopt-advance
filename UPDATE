@@ -1,6 +1,13 @@
 
 = UPDATE LOG
 
+* 2018-09-27
+
+    Fix the value which passed to `Option::Array` and `Option::Hash` callback.
+    Update the README.
+    Add a method `unregiste` to TypesManager.
+    Add a sample redefine the option prefix.
+
 * 2018-09-26
 
     Fix the issue that not clean the `@!noa` of Parser.
