@@ -224,9 +224,15 @@ class Option::Boolean does Option {
         BOOLEAN;
     }
 
-    method lprefix(--> Str) { $!deactivate ?? '--/' !! '--' }
+    method lprefix(--> Str) {
+        my $lprefix = self.Option::lprefix();
+        $!deactivate ?? "{$lprefix}/" !! $lprefix;
+    }
 
-    method sprefix(--> Str) { $!deactivate ?? '-/' !! '-' }
+    method sprefix(--> Str) {
+        my $sprefix = self.Option::sprefix();
+        $!deactivate ?? "{$sprefix}/" !! $sprefix;
+    }
 
     method need-argument(--> Bool) { False; }
 
