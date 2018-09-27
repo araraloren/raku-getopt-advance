@@ -3,7 +3,7 @@ use Test;
 use Getopt::Advance;
 use Getopt::Advance::Option;
 
-plan 30;
+plan 33;
 
 my OptionSet $optset .= new;
 
@@ -54,6 +54,16 @@ supply {
         };
 
         is $os, $optset, "get the optset from supply block";
+    }
+    whenever $optset.Supply('e', 'a') {
+        my ($, $, $v) = @$_;
+
+        ok $v (elem) ['printf("Hello World!");', 'return 0;'], 'callback get value set for array';
+    }
+    whenever $optset.Supply('ex', 'h') {
+        my $v = @$_[2];
+
+        is $v, Pair.new('linux', 'a'), 'get hash value from user';
     }
 }.tap;
 
