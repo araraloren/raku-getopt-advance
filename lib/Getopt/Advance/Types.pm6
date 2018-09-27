@@ -156,6 +156,7 @@ class TypesManager does RefOptionSet is export {
             |%realargs,
             |%args,
         );
+		$option.init();
         return $option;
     }
 

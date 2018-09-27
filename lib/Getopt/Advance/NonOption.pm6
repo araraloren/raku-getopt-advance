@@ -25,6 +25,8 @@ role NonOption does RefOptionSet does Subscriber {
     has $.index;
     has &!callback;
 
+    method init() { }
+
     method set-callback(&!callback) { }
 
     #| match method
