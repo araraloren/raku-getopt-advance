@@ -35,6 +35,8 @@ role Option does RefOptionSet does Subscriber {
     has $.default-value     = Any;
     has Supplier $.supplier = Supplier.new;
 
+    method init() { }
+
     method value {
         $!value;
     }
@@ -374,14 +376,18 @@ class Option::Array does Option {
     }
 
     method value {
-        $!value ?? @$!value !! Array;
+        self.has-value() ?? @$!value !! Array;
     }
 
     # This actually is a push-value
     method set-value($value, Bool :$callback) {
-        my @array = $!value ?? @$!value !! Array.new;
-        @array.push($value);
-        self.Option::set-value(@array, :$callback);
+        my $array = self.has-value() ?? $!value !! Array.new;
+        $array.push($value);
+        self.Option::set-value($array);
+        if $callback.so {
+            self.callback.(self, $value) if self.has-callback();
+            self.supplier.emit([self.owner(), self, $value]);
+        }
     }
 
     method subscribe(Publisher $p) {
@@ -418,22 +424,28 @@ class Option::Hash does Option {
     }
 
     method value {
-        $!value ?? %$!value !! Hash;
+        self.has-value() ?? %$!value !! Hash;
     }
 
     # This actually is a push-value
     method set-value(Any:D $value, Bool :$callback) {
-        my %hash = self.has-value() ?? %$!value !! Hash.new;
+        my $hash = self.has-value() ?? $!value !! Hash.new;
+        my $realvalue;
         if $value ~~ Pair {
-            %hash.push($value);
+            $realvalue = $value;
         } elsif try so $value.pairup {
-            %hash.push($value.pairup);
+            $realvalue = $value.pairup;
         } elsif (my $evalue = self!parse-as-pair($value)) {
-            %hash.push($evalue);
+            $realvalue = $evalue;
         } else {
             &ga-invalid-value("{self.usage()}: option need an Pair.");
         }
-        self.Option::set-value(%hash, :$callback);
+        $hash.push($realvalue);
+        self.Option::set-value($hash);
+        if $callback.so {
+            self.callback.(self, $realvalue) if self.has-callback();
+            self.supplier.emit([self.owner(), self, $realvalue]);
+        }
     }
 
     method subscribe(Publisher $p) {
