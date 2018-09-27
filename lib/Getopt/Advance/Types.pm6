@@ -118,6 +118,16 @@ class TypesManager does RefOptionSet is export {
         self;
     }
 
+	multi method unregiste(Str:D $name --> ::?CLASS:D) {
+		if self.has($name) {
+			%!types{$name}:delete;
+		}
+	}
+
+	multi method unregiste(--> ::?CLASS:D) {
+		%!types = %{};
+	}
+
     sub parseOptString(Str $str) {
         my $action = Actions::Option.new;
         unless Grammar::Option.parse($str, :actions($action)) {
