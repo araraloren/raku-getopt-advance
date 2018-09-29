@@ -107,7 +107,7 @@ Usage:
 It can support `Option` have type such as `Integer`, `Array`, `Hash` compared to traditional command line
 tools.
 And for non-option argument, it provide `NonOption` feature.
-In addition, it also provide `Multi` and `Radio` which can manager multi options realtionship.
+In addition, it also provide `Multi` and `Radio` which can manager multiple options relationship.
 
 = USAGE
 
@@ -122,60 +122,173 @@ There are no argument of new:
 
 `my OptionSet $optset .= new();`
 
-=== Add Option
+=== Option
 
-* `push(::OptionSet::D: Str:D $opt, :$value, :&callback) of ::OptionSet`
-* `push(::OptionSet::D: Str:D $opt, Str:D $annotation, :$value, :&callback) of ::OptionSet`
-* `append(::OptionSet::D: Str:D $opts) of ::OptionSet`
-* `append(::OptionSet::D: *@optpairs where all(@optpairs) ~~ Pair) of ::OptionSet`
+`Option` is represent an option in the command line argument, for example '-c 42'.
 
-`$optset.push("c|count=i", "set something int", value \=> 3);`
+* `push(::OptionSet::D: Option:D $option -\-> OptionSet)`
+* `push(::OptionSet::D: Str:D $opt, :$value, :&callback -\-> OptionSet)`
+* `push(::OptionSet::D: Str:D $opt, Str:D $annotation, :$value, :&callback -\-> OptionSet)`
 
-This is add an option with short name **c** and long name **count**. And the second
-parameter set annotation of option is `"set something int"`, it will be display with
-usage generate by `&helper` (helper generator pass to `&getopt`). The third parameter is
-an named argument, it set the default value of option is **3**.And if you provide
-`&callback`, it will be called when option value are set.
+.example
+[source,perl6]
+$optset.push("c|count=i", "set something int", value => 3, callback => sub ($option, $value) { say "get value $value"; });
 
-`$optset.append("c|count=i" \=> "set something int", "s|string=s" \=> "set something string")`
+Above code add an option to the `OptionSet`, which with short name **c** and long name **count**.
+The second parameter set annotation of option to __set something int__, it will be used to generate
+help message.
+The `value` and `callback` are named argument, it will set the default value of option to **3**.
+And the `callback` will be called when option value set.
 
-This is append two option with their name and annotation.
+NOTE: The first parameter of `callback` is current **Option** processed, and second is **value** set by user.
 
-=== Add Group
+* `append(::OptionSet::D: @options -\-> OptionSet)`
+* `append(::OptionSet::D: Str:D $opts -\-> OptionSet)`
+* `append(::OptionSet::D: *@optpairs where all(@optpairs) ~~ Pair -\-> OptionSet)`
 
-* `append(::OptionSet::D: Str:D $opts, :$optional = True, :$radio, :$multi) of ::OptionSet`
-* `append(::OptionSet::D: :$optional = True, :$radio, :$multi, *@optpairs where all(@optpairs) ~~ Pair) of ::OptionSet`
+.example
+[source,perl6]
+$optset.append("c|count=i" => "set something int", "s|string=s" => "set something string")
 
-`$optset.append("c|count=c;s|string=s", :radio);`
+This code append two `Options` with their name and annotation to the `OptionSet`.
 
-This is add a radio group, it has two option: `c|count=c`、`s|string=s`.
+* `get(::OptionSet::D: Str:D $name, Str:D $type = WhateverType)`
 
-=== Add NonOption
+.example
+[source,perl6]
+$optset.get('c', 'i');
 
-* `insert-main(::OptionSet::D: &callback) of Int`
-* `insert-cmd(::OptionSet::D: Str:D $name) of Int`
-* `insert-cmd(::OptionSet::D: Str:D $name, &callback) of Int`
-* `insert-pos(::OptionSet::D: Str:D $name, &callback, :$front!) of Int`
-* `insert-pos(::OptionSet::D: Str:D $name, &callback, :$last!) of Int`
-* `insert-pos(::OptionSet::D: Str:D $name, $index where Int:D | WhateverCode , &callback) of Int`
+This will try to get a `Option` by its name and type, the sub will return **Any** if the `Option` not exists.
 
-`$optset.insert-main(sub main (@args) { .say of @args; });`
+* `has(::OptionSet::D: Str:D $name, Str:D $type = WhateverType -\-> Bool)`
 
-This is insert a main to `$optset`, it print all non-option argument.
+.example
+[source,perl6]
+$optset.has('c', 'i');
 
-=== Get Option Value
+This code check if there is a `Option` called **c** and it's type is **i**.
 
-`my $x = $optset<x>;`
-`my @x := $optset<x>;`
+* `Supply(::OptionSet::D: Str:D $name, Str:D $type = WhateverType -\-> Supply)`
 
-NOTE: Use bind operator when you want bind `Option::Array`'s value to
-an Positional/Association variable.
+.example
+[source,perl6]
+---------------
+$optset.Supply('c').tap(-> \v {
+    my ($optset, $option, $v) = @(v);
+    # ... more
+})
+---------------
+
+This will return a Supply. When the `Option` set by user,
+current `OptionSet`, current `Option` and the `value` will be emitted.
+
+=== Group Operation
+
+`Group` can manage more than one `Option`, it provide some feature about option.
+For example, with radio group, it only accept one option in same time.
+
+* `append(::OptionSet::D: Str:D $opts, :$optional = True, :$multi -\-> ::OptionSet)`
+* `append(::OptionSet::D: Str:D $opts, :$optional = True, :$radio -\-> ::OptionSet)`
+* `append(::OptionSet::D: :$optional = True, :$multi, *@optpairs where all(@optpairs) ~~ Pair -\-> ::OptionSet)`
+* `append(::OptionSet::D: :$optional = True, :$radio, *@optpairs where all(@optpairs) ~~ Pair -\-> ::OptionSet)`
+
+.example
+[source,perl6]
+$optset.append("c|count=c;s|string=s", :radio);
+
+This add a radio group, it's only allow set one of them in same time.
+
+.example
+[source,perl6]
+$optset.append("c|count=c;s|string=s", :multi);
+
+This add a multiple group.
+
+=== NonOption Operation
+
+`NonOption` is represent non-option arguments in the command line arguments.
+
+* `insert-main(::OptionSet::D: &callback = sub () { True } -\-> Int)`
+* `insert-main(::OptionSet::D: Str:D $name, &callback = sub () { True } -\-> Int)`
+
+.example
+[source,perl6]
+$optset.insert-main(sub (@args) { .say for @args; });
+
+This insert a `NonOption::Main` to `OptionSet`, it will call with all non-option arguments.
+
+* `insert-cmd(::OptionSet::D: Str:D $name, &callback = sub () { True } -\-> Int)`
+* `insert-cmd(::OptionSet::D: Str:D $name, Str:D $annotation, &callback = sub () { True } -\-> Int)`
+
+.example
+[source,perl6]
+$optset.insert-cmd("load", sub (@args) { .say for @args; True; } );
+
+This insert a `NonOption::Cmd` to `OptionSet`, it will call with all non-option arguments except the name(load).
+It need user provide the command in the command line arguments, for example `scrpt.p6 load *OPTIONs`.
+
+* `insert-pos(::OptionSet::D: Str:D $name, &callback = sub () { True }, :$front, :$last -\-> Int)`
+* `insert-pos(::OptionSet::D: Str:D $name, Str:D $annotation, &callback = sub () { True }, :$front, :$last -\-> Int)`
+* `insert-pos(::OptionSet::D: Str:D $name, $index where Int:D | WhateverCode , &callback = sub () { True } --> Int)`
+* `insert-pos(::OptionSet::D: Str:D $name, Str:D $annotation, $index where Int:D | WhateverCode , &callback = sub () { True } --> Int)`
+
+.example
+[source,perl6]
+$optset.insert-pos("load", 0, sub ($arg) { say $arg; True; });
+
+This insert a `NonOption::Pos` to `OptionSet`, it will call with non-option argument matched by index(base on zero).
+The `front` and `last` will insert a `NonOption::Pos` with index 0 and * - 1, respectively.
+
+* `get(::OptionSet::D: Int:D $id)`
+* `get-main(::OptionSet::D:)`
+* `get-main(::OptionSet::D: Int:D $id)`
+* `get-main(::OptionSet::D: Str:D $name)`
+* `get-cmd(::OptionSet::D:)`
+* `get-cmd(::OptionSet::D: Int:D $id)`
+* `get-cmd(::OptionSet::D: Str:D $name)`
+* `get-pos(::OptionSet::D:)`
+* `get-pos(::OptionSet::D: Int:D $id)`
+* `get-pos(::OptionSet::D: Str:D $name, $index)`
+
+.example
+[source,perl6]
+$optset.get(2);
+$optset.get-main(2);
+
+The first line get an `NonOption` which id is 2.
+The second line get the `NonOption::Main` which id is 2.
+
+* `has(::OptionSet::D: Int:D $id -\-> False)`
+
+.example
+[source,perl6]
+$optset.has(2);
+
+Return True if the `NonOption` which id is 2 exists.
+
+* `Supply(::OptionSet::D: Int:D $id -\-> Supply)`
+* `Supply(::OptionSet::D: Int:D $id, :$main!, -\-> Supply)`
+* `Supply(::OptionSet::D: Int:D $id, :$cmd! , -\-> Supply)`
+* `Supply(::OptionSet::D: Int:D $id, :$pos! , -\-> Supply)`
+
+.example
+[source,perl6]
+---------------------
+$optset.Supply(2).tap(sub \v {
+    my ($optset, $no, $v) = @(v);
+    #... do more
+});
+---------------------
+
+This will return a Supply. When the `NonOption` set by user,
+current `OptionSet`, current `NonOption` and the `value` will be emitted.
 
 == Option
 
-`Option` can be create by a string. For example, `"a|action=b"` represent an option
-with two kind name, long name is `action`, and short name is `a`, and the option
-type is `boolean`. So you can set **action** argument to true by append `-a` or `--action`
+`Option` can be create by a string.
+For example, `"a|action=b"` represent an option with two kind name,
+long name is `action`, and short name is `a`, and the option type is `boolean`.
+So you can set **action** argument to true by append `-a` or `--action`
 after your program.
 
 The list of Option type:
@@ -225,7 +338,7 @@ NOTE: The parser will check `main` last.
 
 == Group
 
-`Group` provide a way set up association between multi `Option`, and it has a check method.
+`Group` provide a way set up association between multiple `Option`, and it has a check method.
 The parser will call it's check method before return to `&getopt`.
 
 === radio
@@ -240,7 +353,7 @@ Also it force user supply an option when `Option` is not optional.
 
 == getopt
 
-Sub `&getopt` accept one or multi `OptionSet`, pass it and command line argument to the `&parser`.
+Sub `&getopt` accept one or multiple `OptionSet`, pass it and command line argument to the `&parser`.
 `&getopt` can accept traditional getopt(in C) string, and convert it to `OptionSet`.
 Once an `OptionSet` matching success, it will return `Getopt::Advance::ReturnValue`.
 This class contain matched `OptionSet`、all `NOA(Non-Option Argument)`, and `main`'s id and
@@ -273,7 +386,7 @@ wrap-command(
 
 == `&getopt`
 
-Sub `&getopt` accept one or multi `OptionSet`, pass it and command line argument
+Sub `&getopt` accept one or multiple `OptionSet`, pass it and command line argument
 to the `&parser`. Once an `OptionSet` matching success, it will return an instance
 of `Getopt::Advance::ReturnValue`. When all `OptionSet` match failed, it will
 produced the help message, and rethrow the exception or call `exit` end the script.
@@ -493,7 +606,7 @@ And the same of callback. The `$annotation` is the help message of the option.
 ** append(::?CLASS::D: :$optional = True, :$multi!, *@optpairs where all(@optpairs) ~~ Pair) of ::?CLASS
 
 +
-Add multi options to the `OptionSet`, make sure the string is split by `;`.
+Add multiple options to the `OptionSet`, make sure the string is split by `;`.
 You can make them as a radio group or multi group by pass `:radio`、`:multi`.
 
 === Method of non-option
