@@ -7,6 +7,7 @@
     Fix the issue not clean the `prenoa`.
     Add more test for `PreParser`.
     Fix the issue not handle the multiple `OptionSet` correctly.
+    Add a named argument for `&ga-helper`, disable it by pass `:!compact-help` to `&getopt`, default is False.
 
 * 2018-09-27
 
