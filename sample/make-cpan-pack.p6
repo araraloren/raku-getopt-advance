@@ -17,6 +17,11 @@ my $json = Q:to/OPTION/;
             "type" : "s",
             "value": ".",
             "annotation": "Set the pack output directory"
+        },
+        {
+            "short": "md",
+            "type" : "b",
+            "annotation": "Convert the asciidoc(README) to markdown"
         }
     ]
 }
@@ -84,14 +89,29 @@ $os.insert-pos(
 
         note ">> Move the file to pack directory" if $debug;
 
-
-
         for @file -> $file {
             shell("cp -rf {$file.basename} {$out.add($packname)}");
         }
         note ">> Clean the precomp cache" if $debug;
 
         rmtree $out.add($packname).add('lib').add('.precomp').path;
+
+        my $olddir = $*CWD;
+        chdir($out.add($packname));
+        if $os<md> {
+            note ">> Conver the README" if $debug;
+            shell(
+                Q:to/CONVERT/
+                asciidoctor -b docbook README.adoc;
+                iconv -t utf8 README.xml > README.xml2;
+                rm -f README.xml;
+                pandoc -f docbook -t gfm README.xml2 -o README.md;
+                rm -f README.xml2;
+                rm -f README.adoc;
+                CONVERT
+            );
+        }
+        chdir($olddir);
 
         note ">> Make package" if $debug;
 
