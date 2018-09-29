@@ -557,6 +557,11 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
 class PreParser does Parser is export {
     has @.prenoa;
 
+    method init(|c) {
+        @!prenoa = [];
+        self.Parser::init(|c);
+    }
+
     method preignore() {
         @!prenoa.push($!arg);
     }
@@ -585,7 +590,6 @@ class PreParser does Parser is export {
                 self;
             }
         }.new;
-        &!cmdcheck = sub (\self) { };
     }
 }
 
