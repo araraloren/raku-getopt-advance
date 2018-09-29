@@ -24,10 +24,13 @@ role NonOption does RefOptionSet does Subscriber {
     has Supplier $.supplier = Supplier.new;
     has $.index;
     has &!callback;
+    has $.annotation = "";
 
     method init() { }
 
     method set-callback(&!callback) { }
+
+    method set-annotation($!annotation) { }
 
     #| match method
     method match-index(Int $total, Int $index --> Bool) { ... }
@@ -41,11 +44,15 @@ role NonOption does RefOptionSet does Subscriber {
 
     method success() { so $!value; }
 
+    method annotation() { $!annotation; }
+
     method reset-success() { $!value = Any; }
 
     method reset() { $!value = Any; }
 
     method has-callback( --> Bool) { &!callback.defined; }
+
+    method has-annotation( --> Bool) { $!annotation ne ""; }
 
     method CALL-ME(|c) {
         my $ret;
