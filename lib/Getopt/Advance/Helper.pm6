@@ -16,6 +16,8 @@ role Helper is export {
     has @.radio;                #| radio group
     has @.usage-cache;
     has @.annotation-cache;
+    has @.cmdusage-cache;
+    has @.posusage-cache;
     has $.maxopt = HELPOPTSUPPORT;
     has $.maxpos = HELPPOSSUPPORT;
     has $!group-usage-cache;
@@ -23,6 +25,8 @@ role Helper is export {
     method reset-cache() {
         @!usage-cache = [];
         @!annotation-cache = [];
+        @!cmdusage-cache = [];
+        @!posusage-cache = [];
         $!group-usage-cache = "";
     }
 
@@ -147,45 +151,103 @@ role Helper is export {
         }
         @!annotation-cache;
     }
-}
 
-multi sub ga-helper($optset, $outfh, *%args) is export {
-    my $helper = &ga-helper-impl($optset);
+    method cmdusage() {
+        unless +@!cmdusage-cache > 0 {
+            for @!cmd -> $cmd {
+                if $cmd.has-annotation() {
+                    @!cmdusage-cache.push(
+                        [$cmd.name, $cmd.annotation]
+                    );
+                }
+            }
+        }
+        @!cmdusage-cache;
+    }
 
-    $outfh.say("Usage:");
-    $outfh.say(.Str ~ "\n") for $helper.usage(|%args);
-
-    require Terminal::Table <&array-to-table>;
-
-    my @annotation = $helper.annotation();
-
-    if @annotation.elems > 0 {
-        @annotation = &array-to-table(@annotation, style => 'none');
-        $outfh.say(.join(" ") ~ "\n") for @annotation;
+    method posusage() {
+        unless +@!posusage-cache > 0 {
+            for %!pos.sort(*.key) -> $posarray {
+                for @($posarray.value) -> $pos {
+                    given $pos {
+                        if .has-annotation() {
+                            @!posusage-cache.push(
+                                [.name, .annotation]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        @!posusage-cache;
     }
 }
 
-multi sub ga-helper(@optset, $outfh, *%args) is export {
+my sub print-annotation(@helpers, $outfh, $newline) {
+    require Terminal::Table <&array-to-table>;
+
+    my $section;
+
+    $section = True;
+    for @helpers -> $helper {
+        my @cmdu = $helper.cmdusage();
+        if +@cmdu > 0 {
+            if $section {
+                $outfh.say("CMDs:");
+                $section = False;
+            }
+            @cmdu = &array-to-table(@cmdu, style => 'none');
+            $outfh.say("  " ~ .join(" ") ~ $newline) for @cmdu;
+        }
+    }
+    $section = True;
+    for @helpers -> $helper {
+        my @posu = $helper.posusage();
+        if +@posu > 0 {
+            if $section {
+                $outfh.say("POSs:");
+                $section = False;
+            }
+            @posu = &array-to-table(@posu, style => 'none');
+            $outfh.say("  " ~ .join(" ") ~ $newline) for @posu;
+        }
+    }
+    $section = True;
+    for @helpers -> $helper {
+        my @annotation = $helper.annotation();
+        if @annotation.elems > 0 {
+            if $section {
+                $outfh.say("OPTIONs:");
+                $section = False;
+            }
+            @annotation = &array-to-table(@annotation, style => 'none');
+            $outfh.say("  " ~ .join(" ") ~ $newline) for @annotation;
+        }
+    }
+}
+
+multi sub ga-helper($optset, $outfh, :$compact-help = False, *%args) is export {
+    my $helper = &ga-helper-impl($optset);
+    my $newline= $compact-help ?? "" !! "\n";
+
+    $outfh.say("Usage:");
+    $outfh.say("  " ~ .Str ~ $newline) for $helper.usage(|%args);
+    &print-annotation([$helper, ], $outfh, $newline);
+}
+
+multi sub ga-helper(@optset, $outfh, :$compact-help = False, *%args) is export {
     if +@optset == 1 {
         &ga-helper(@optset[0], $outfh, |%args);
     } else {
         my @helpers = [ &ga-helper-impl($_) for @optset ];
+        my $newline = $compact-help ?? "" !! "\n";
 
         $outfh.say("Usage:");
         for @helpers -> $helper {
-            $outfh.say(.Str ~ "\n") for $helper.usage(|%args);
+            $outfh.say("  " ~ .Str ~ $newline) for $helper.usage(|%args);
         }
 
-        require Terminal::Table <&array-to-table>;
-
-        for @helpers -> $helper {
-            my @annotation = $helper.annotation();
-
-            if @annotation.elems > 0 {
-                @annotation = &array-to-table(@annotation, style => 'none');
-                $outfh.say(.join(" ") ~ "\n") for @annotation;
-            }
-        }
+        &print-annotation(@helpers, $outfh, $newline);
     }
 }
 
@@ -211,13 +273,13 @@ sub ga-helper-impl($optset) is export {
     }
 
     return Helper.new(
-        program         => $*PROGRAM-NAME,
-        cmd             => @cmd,
-        pos             => %pos,
-        main            => "",
-        option          => %option,
-        multi           => $optset.multi,
-        radio           => $optset.radio,
+        program => $*PROGRAM-NAME,
+        cmd     => @cmd,
+        pos     => %pos,
+        main    => "",
+        option  => %option,
+        multi   => $optset.multi,
+        radio   => $optset.radio,
     );
 }
 
