@@ -169,7 +169,7 @@ multi sub ga-helper(@optset, $outfh, *%args) is export {
     if +@optset == 1 {
         &ga-helper(@optset[0], $outfh, |%args);
     } else {
-        my @helpers = &ga-helper-impl($_) for @optset;
+        my @helpers = [ &ga-helper-impl($_) for @optset ];
 
         $outfh.say("Usage:");
         for @helpers -> $helper {

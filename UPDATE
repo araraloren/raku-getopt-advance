@@ -6,6 +6,7 @@
     Should check the cmd after broadcast non-option in `PreParser`.
     Fix the issue not clean the `prenoa`.
     Add more test for `PreParser`.
+    Fix the issue not handle the multiple `OptionSet` correctly.
 
 * 2018-09-27
 

@@ -86,7 +86,7 @@ multi sub getopt(
 
     sub showhelp(@optset) {
         if &helper.defined {
-            &helper.(@optset, $stderr);
+            &helper.(@optset, $stderr, |%args);
         }
     }
 
@@ -577,7 +577,7 @@ class OptionSet is export {
         return $id;
     }
 
-    method insert-cmd(::?CLASS::D: Str:D $name, &callback = &true-block --> Int ) {
+    multi method insert-cmd(::?CLASS::D: Str:D $name, &callback = &true-block --> Int ) {
         my $id = $!counter++;
         %!cmd.push(
             $id => self.create("{$name}=c", :&callback)
@@ -585,18 +585,42 @@ class OptionSet is export {
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, &callback = &true-block, :$front! --> Int ) {
+    multi method insert-cmd(::?CLASS::D: Str:D $name, Str:D $annotation, &callback = &true-block --> Int ) {
         my $id = $!counter++;
-        %!pos.push(
-            $id => self.create("{$name}=p", :&callback, index => 0)
+        %!cmd.push(
+            $id => self.create("{$name}=c", :$annotation, :&callback)
         );
         return $id;
     }
 
-    multi method insert-pos(::?CLASS::D: Str:D $name, &callback = &true-block, :$last! --> Int ) {
+    multi method insert-pos(::?CLASS::D: Str:D $name, &callback = &true-block, :$front, :$last --> Int ) {
         my $id = $!counter++;
         %!pos.push(
-            $id => self.create("{$name}=p", :&callback, index => * - 1)
+            $id => do {
+                if $front.so {
+                    self.create("{$name}=p", :&callback, index => 0);
+                } elsif $last.so {
+                    self.create("{$name}=p", :&callback, index => * - 1);
+                } else {
+                    die "What Pos do you want insert to ?";
+                }
+            }
+        );
+        return $id;
+    }
+
+    multi method insert-pos(::?CLASS::D: Str:D $name, Str:D $annotation, &callback = &true-block, :$front, :$last --> Int ) {
+        my $id = $!counter++;
+        %!pos.push(
+            $id => do {
+                if $front.so {
+                    self.create("{$name}=p", :$annotation, :&callback, index => 0);
+                } elsif $last.so {
+                    self.create("{$name}=p", :$annotation, :&callback, index => * - 1);
+                } else {
+                    die "What Pos do you want insert to ?";
+                }
+            }
         );
         return $id;
     }
@@ -605,6 +629,14 @@ class OptionSet is export {
         my $id = $!counter++;
         %!pos.push(
             $id => self.create("{$name}=p", :&callback, :$index)
+        );
+        return $id;
+    }
+
+    multi method insert-pos(::?CLASS::D: Str:D $name, Str:D $annotation, $index where Int:D | WhateverCode , &callback = &true-block --> Int ) {
+        my $id = $!counter++;
+        %!pos.push(
+            $id => self.create("{$name}=p", :$annotation, :&callback, :$index)
         );
         return $id;
     }
