@@ -1,6 +1,13 @@
 
 = UPDATE LOG
 
+* 2018-09-30
+
+    Make help generator more readable.
+    Add COMMANDs, POSITIONs, POSITIONs when generate for single `OptionSet`.
+    Current, show the COMMANDs, and POSITIONs information for multiple `OptionSet`.
+    Add `disable-pos-help`, `disable-cmd-help` to `&ga-helper`, using it by pass it to `&getopt`.
+
 * 2018-09-29
 
     Should check the cmd after broadcast non-option in `PreParser`.

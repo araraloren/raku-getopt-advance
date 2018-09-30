@@ -6,7 +6,7 @@ use Getopt::Advance::Exception;
 {
     my OptionSet $optset .= new;
 
-    $optset.insert-pos("arthmetic", :front, sub ($, $oparg) {
+    $optset.insert-pos("arthmetic", "do arthmetic!", :front, sub ($, $oparg) {
         given $oparg.value {
             when /plus|multi/ {
                 ok True, "get first operator ok";

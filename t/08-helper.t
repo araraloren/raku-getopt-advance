@@ -8,9 +8,9 @@ plan 3;
 {
     my OptionSet $optset .= new;
 
-    $optset.insert-cmd("plus");
-    $optset.insert-cmd("multi");
-    $optset.insert-pos("other", :front, sub ($arg) {
+    $optset.insert-cmd("plus", "Using plus feature");
+    $optset.insert-cmd("multi", "Using multi feature");
+    $optset.insert-pos("other", "Using other feature", :front, sub ($arg) {
         &ga-try-next("want try next optionset");
     });
     $optset.insert-pos("type", 1, sub ($arg) {
