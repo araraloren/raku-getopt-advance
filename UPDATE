@@ -1,12 +1,17 @@
 
 = UPDATE LOG
 
+* 2018-10-01
+
+    Print the `CMDs` and `POSs` which not have annotation.
+    Add named argument `one-section-cmd` to `ga-helper`, using it by pass it to `&getopt`.
+
 * 2018-09-30
 
     Make help generator more readable.
-    Add COMMANDs, POSITIONs, POSITIONs when generate for single `OptionSet`.
-    Current, show the COMMANDs, and POSITIONs information for multiple `OptionSet`.
-    Add `disable-pos-help`, `disable-cmd-help` to `&ga-helper`, using it by pass it to `&getopt`.
+    Add `COMMANDs`, `POSITIONs`, `POSITIONs` when generate for single `OptionSet`.
+    Current, show the `COMMANDs`, and `POSITIONs` information for multiple `OptionSet`.
+    Add named arguments `disable-pos-help`, `disable-cmd-help` to `&ga-helper`, using it by pass it to `&getopt`.
 
 * 2018-09-29
 
