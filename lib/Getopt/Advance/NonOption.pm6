@@ -239,9 +239,6 @@ class NonOption::Pos does NonOption {
     method type( --> "pos") { }
 
     method usage() {
-        if self.index ~~ Int && self.index == 0 {
-            return self.name();
-        }
         return "{self.name()}\@{self.index ~~ WhateverCode ?? '*' !! self.index }";
     }
 }
