@@ -83,7 +83,7 @@ role Helper is export {
         if $optcnt > 0 {
             if $full || ($optcnt <= $!maxopt && +@pos <= $!maxpos) {
                 if ! $merge-group {
-                    for %!option {
+                    for %!option.sort(*.key) {
                         $usage ~= (.value.optional ?? '[' !! '<');
                         $usage ~= .key;
                         $usage ~= (.value.optional ?? ']' !! '>');
@@ -107,13 +107,13 @@ role Helper is export {
 
             # front is CMDs and POSs@0
             $front = +@!cmd;
-            $front += +@(%!pos{0}) if (%!pos{0}:exists);
+            $front += +@(%!pos{0}) if (%!pos{0}:exists) && (+@!cmd > 0);
             for %!pos.sort(*.key) -> $item {
                 given $item.value {
                     @pos.push('[' ~ @($_)>>.usage.join("|") ~ ']');
                 }
             }
-            @pos.shift() if %!pos{0}:exists;
+            @pos.shift() if (%!pos{0}:exists) && (+@!cmd > 0);
             if $front > 0 {
                 @!usage-cache.push(self.concatopt($optcnt, "<{$!commandhit}> ", @pos, :$merge-group))
             } else {
@@ -128,7 +128,7 @@ role Helper is export {
             my (@front, @pos);
 
             @front = [ .usage() for @!cmd ];
-            if %!pos{0}:exists {
+            if (%!pos{0}:exists) && (+@!cmd > 0) {
                 for @(%!pos{0}) -> $pos {
                     @front.push($pos.usage());
                 }
@@ -138,7 +138,7 @@ role Helper is export {
                     @pos.push('[' ~ @($_)>>.usage.join("|") ~ ']');
                 }
             }
-            @pos.shift() if %!pos{0}:exists;
+            @pos.shift() if (%!pos{0}:exists) && (+@!cmd > 0);
             if +@front > 0 {
                 my $refusage = self.concatopt(1, "", @pos, :$merge-group, :full);
                 for @front -> $front {
@@ -161,7 +161,7 @@ role Helper is export {
         unless +@!annotation-cache > 0 {
             my @annotation;
 
-            for %!option -> $item {
+            for %!option.sort(*.key) -> $item {
                 @annotation.push(
                     [
                         $item.key,
@@ -186,20 +186,16 @@ role Helper is export {
     method cmdusage() {
         unless +@!cmdusage-cache > 0 {
             for @!cmd -> $cmd {
-                if $cmd.has-annotation() {
-                    @!cmdusage-cache.push(
-                        [$cmd.usage(), $cmd.annotation]
-                    );
-                }
+                @!cmdusage-cache.push(
+                    [$cmd.usage(), $cmd.annotation]
+                );
             }
-            if %!pos{0}:exists {
+            if (+@!cmd > 0) && (%!pos{0}:exists) {
                 for @(%!pos{0}) -> $item {
                     given $item {
-                        if .has-annotation() {
-                            @!cmdusage-cache.push(
-                                [ .usage(), .annotation]
-                            );
-                        }
+                        @!cmdusage-cache.push(
+                            [ .usage(), .annotation]
+                        );
                     }
                 }
             }
@@ -210,14 +206,12 @@ role Helper is export {
     method posusage() {
         unless +@!posusage-cache > 0 {
             for %!pos.sort(*.key) -> $posarray {
-                next if $posarray.key == 0;
+                next if (+@!cmd > 0) && ($posarray.key == 0);
                 for @($posarray.value) -> $pos {
                     given $pos {
-                        if .has-annotation() {
-                            @!posusage-cache.push(
-                                [.usage(), .annotation]
-                            );
-                        }
+                        @!posusage-cache.push(
+                            [.usage(), .annotation()]
+                        );
                     }
                 }
             }
@@ -274,7 +268,9 @@ multi sub ga-helper(@optset, $outfh, *%args) is export {
                 my %pos := $helper.pos();
                 my $front= 0;
 
-                $front = %pos{0}.elems() if %pos{0}:exists;
+                if (%pos{0}:exists) && ($helper.cmd().elems() > 0) {
+                    $front = %pos{0}.elems();
+                }
                 for %pos.values -> $posarray {
                     $pos += $posarray.elems();
                 }
@@ -307,18 +303,34 @@ multi sub ga-helper(@optset, $outfh, *%args) is export {
         }
         if $opt > 0 {
             $outfh.say(@helpers[0].optionhit);
-            for @helpers -> $helper {
-                my @fullusage = $helper.full-usage(|%args);
+            if %args<one-section-cmd> {
+                my @allfullusage;
 
-                if +@fullusage > 0 && $helper.option.elems > 0 {
-                    $outfh.say("  " ~ @fullusage>>.[0].join(", "));
-                    if +@fullusage > 1 {
-                        $outfh.say("    <{@helpers[0].commandhit}> {@fullusage[0][1]}{$newline}");
-                    } else {
-                        if @fullusage[0][0] eq HELPNOCOMMAND {
-                            $outfh.say("    {@fullusage[0][1]}{$newline}");
+                for @helpers -> $helper {
+                    my @fullusage = $helper.full-usage(|%args);
+
+                    if +@fullusage > 0 && $helper.option.elems > 0 {
+                        @allfullusage.append(@fullusage);
+                    }
+                }
+                @allfullusage = &array-to-table(@allfullusage, style => 'none');
+                for @allfullusage -> $array {
+                    $outfh.say("  " ~ $array.join(" ") ~ $newline);
+                }
+            } else {
+                for @helpers -> $helper {
+                    my @fullusage = $helper.full-usage(|%args);
+
+                    if +@fullusage > 0 && $helper.option.elems > 0 {
+                        $outfh.say("  " ~ @fullusage>>.[0].join(", "));
+                        if +@fullusage > 1 {
+                            $outfh.say("    <{@helpers[0].commandhit}> {@fullusage[0][1]}{$newline}");
                         } else {
-                            $outfh.say("    {@fullusage[0][0]} {@fullusage[0][1]}{$newline}");
+                            if @fullusage[0][0] eq HELPNOCOMMAND {
+                                $outfh.say("    {@fullusage[0][1]}{$newline}");
+                            } else {
+                                $outfh.say("    {@fullusage[0][0]} {@fullusage[0][1]}{$newline}");
+                            }
                         }
                     }
                 }
