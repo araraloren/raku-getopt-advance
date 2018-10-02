@@ -25,7 +25,7 @@ role Helper is export {
     has $.maxpos is rw = HELPPOSSUPPORT;
     has $.maxfront is rw = HELPFRONTSUPPORT;
     has $!group-usage-cache;
-    has $.commandhit is rw  = 'COMMANDs';
+    has $.commandhit is rw  = 'COMMAND';
     has $.optionhit  is rw  = 'OPTIONs';
     has $.positionhit is rw = 'POSITIONs';
     has $.usagehit is rw    = 'Usage:';
