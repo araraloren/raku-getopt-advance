@@ -325,7 +325,7 @@ my class OptionResultHandler does ResultHandler {
     }
 }
 
-role Parser does Getopt::Advance::Utils::Publisher is export {
+role Parser does Getopt::Advance::Utils::Publisher does RefOptionSet is export {
     has Bool $.strict;
     has Bool $.autohv;
     has Bool $.bsd-style;
@@ -334,7 +334,6 @@ role Parser does Getopt::Advance::Utils::Publisher is export {
     has Int  $!noaIndex;
     has $.arg;
     has @.noa;
-	has $.owner;
     has &.is-next-arg-available;
     has &.optcheck;
     has &.cmdcheck;
@@ -596,6 +595,7 @@ class PreParser does Parser is export {
 sub ga-parser($parserobj, @args, $optset, *%args) is export {
     Debug::debug("Call ga-parser, got arguments '{@args.join(",")}' from input");
     $parserobj.init(@args);
+    $parserobj.set-owner($optset);
     $optset.set-parser($parserobj);
     $parserobj.($optset);
     ReturnValue.new(
@@ -615,6 +615,7 @@ sub ga-parser($parserobj, @args, $optset, *%args) is export {
 sub ga-pre-parser($parserobj, @args, $optset, *%args) is export {
     Debug::debug("Call ga-pre-parser, got arguments '{@args.join(",")}' from input");
     $parserobj.init(@args);
+    $parserobj.set-owner($optset);
     $optset.set-parser($parserobj);
     $parserobj.($optset);
     ReturnValue.new(
@@ -692,6 +693,7 @@ class Parser2 does Parser is export {
 sub ga-parser2($parserobj, @args, $optset, *%args) is export {
     Debug::debug("Call ga-parser2, got arguments '{@args.join(",")}' from input");
     $parserobj.init(@args);
+    $parserobj.set-owner($optset);
     $optset.set-parser($parserobj);
     $parserobj.($optset);
     ReturnValue.new(
