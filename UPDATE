@@ -1,6 +1,10 @@
 
 = UPDATE LOG
 
+* 2018-10-02
+    Fix syntax error of reset `Option` value.
+    Fix error that not clean the subscriber, that will cause some stranger behavior.
+
 * 2018-10-01
 
     Print the `CMDs` and `POSs` which not have annotation.
