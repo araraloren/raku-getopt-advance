@@ -411,23 +411,23 @@ wrap-command(
 
 == `&getopt`
 
-Sub `&getopt` accept one or multiple `OptionSet`, pass it and command line argument
-to the `&parser`. Once an `OptionSet` matching success, it will return an instance
-of `Getopt::Advance::ReturnValue`. When all `OptionSet` match failed, it will
-produced the help message, and rethrow the exception or call `exit` end the script.
+Sub `&getopt` accept one or multiple `OptionSet`, pass it and command line argument to the `parser`.
+`&getopt` can accept traditional getopt(in C) string, and convert it to `OptionSet`.
+Once an `OptionSet` matching success, it will return an instance of `ReturnValue`.
+The return value contain matched `OptionSet`、all `NOA(Non-Option Argument)`, and `MAIN`'s id with the return value.
 
 === Return value
 
-* class Getopt::Advance::ReturnValue
+* class ReturnValue
 **    has $.optionset;
 +
 The OptionSet which mathed
 **    has @.noa;
 +
-The left non-option argument
+The left non-option argument depends on the parser
 **    has %.return-value;
 +
-Return value of main, the key is main's id.
+Return value of `MAIN`, the key is `MAIN`'s id.
 
 === The help message
 
@@ -436,29 +436,31 @@ Sub `&getopt` will display the help message in the following cases:
 * all of OptionSet match failed
 * `&ga-want-helper` called
 * `&ga-want-all-helper` called
-* The OptionSet has option named `help`, and `:autohv` passed to `&getopt`.
+* The OptionSet has option named set by `&set-autohv` , and `:autohv` passed to `&getopt`.
 
 === Exception
 
-If an `OptionSet` match failed, consider follow serveral situation:
+If an `OptionSet` match failed, consider follow several situation:
 
 * default
 +
-`&getopt` will print helper(when help generator `&helper` defined) of current
-`OptionSet`, print error message, and rethrow the exception.
+Will throw the exception.
 
-* X::GA::ParseFailed
+* X::GA::ParseError
+* X::GA::OptionError
+* X::GA::GroupError
+* X::GA::NonOptionError
 +
-The `&parser`(except `&ga-pre-parser`) will call `&ga-try-next` throw an X::GA::ParseFailed exception
-when `OptionSet` match failed. When `&getopt` caught this exception, it will
-try next `OptionSet` supplied. If no more `OptionSet`, it will print helper
-(when help generator `&helper` defined) of all `OptionSet`,  print error message,
-and rethrow the exception. The user also can throw this exception in
-`&callback` of `Option`.
+The `parser`(except `&ga-pre-parser`) will call `&ga-try-next` throw an
+X::GA::ParseError exception when `OptionSet` match failed.
+When `&getopt` caught this exception, it will try next `OptionSet` supplied.
+If no more `OptionSet`, it will print helper (when help generator `&helper` defined)
+of all `OptionSet`,  print error message, and rethrow the exception.
+The user also can throw this exception.
 
 * X::GA::WantPrintHelper
 +
-The user can call `&ga-want-helper` ask `&parser` interrupt the parsing process,
+The user can call `&ga-want-helper` ask `parser` interrupt the parsing process,
 and print help message of current `OptionSet`. `&getopt` will print helper (when
 help generator `&helper` defined) of current `OptionSet` and exit with 0.
 
@@ -468,21 +470,29 @@ The user can call `&ga-want-all-helper` ask `&parser` interrupt the parsing proc
 and print help message of all `OptionSet`. `&getopt` will print helper(when
 help generator `&helper` defined) of all `OptionSet` and exit with 0.
 
-=== Signature
+=== Candidates
 
 * getopt(@args = @*ARGS, Str $optstring, *%args)
 * getopt(@args = @*ARGS, *@optsets,      *%args)
 
-==== The positional argument
+==== The positional arguments
 
 * @args
 +
 This is the command line argument passed to `&getopt`, the default value is `@*ARGS`.
-And it means you can provide yours "command line argument" to `&getopt`.
+And it means you can provide yours "command line arguments" to `&getopt`.
 
 NOTE: The sub `&getopt` will not modify `@*ARGS`.
 
-==== The named argument of &getopt
+* $optstring
++
+`&getopt` also work fine with traditional Option string (in C) to .
+
+* `*@optsets`
++
+The `OptionSet` supplied by user.
+
+==== The named arguments
 
 * :&helper = &ga-helper
 +
@@ -490,37 +500,54 @@ NOTE: The sub `&getopt` will not modify `@*ARGS`.
 
 * :$stdout = $*OUT
 +
-Help message will print to `$stdout`, default is `$*OUT`.
+Current not used, default is `$*OUT`.
 
 * :$stderr = $*ERR
 +
-Error message will print to `$stderr`, default is `$*ERR`.
+Help message will print to `$stderr`, default is `$*ERR`.
 
 * :$parser = &ga-parser
 +
-Command line argument parser, default is `&ga-parser`.
+Command line argument parser, default is `&ga-parser`, other can be `&ga-pre-parser`, `&ga-parser2`.
+
+* :$parserclass
++
+Before parsing, `&getopt` will get a instance of `&parserclass`, then pass it to `&parser` when parsing.
 
 * :$strict = True
 +
-When `$strict` is True, argument of an option should not be start with `-` or `--`.
+When `$strict` is True, argument of an option should not be start with option prefix, default is `-` or `--`.
 
 * :$autohv = False
 +
-When `$autohv` is True, `&getopt` will automate print `$version` information and help message.
-The `:autohv` will not work if you don't have a option named `help` and `version`.
-Without `:autohv`, you need deal the `help` or `version` manually.
+If `$autohv` is True, `&getopt` will automate print `$version` information and help message
+when the related option set.
+The `:autohv` will not work if you don't have a option in `@autohv-opt`,
+default is `help` and `version`. Set the option name by sub `set-autohv(@ops)`.
+Without `:autohv`, you need deal the help option manually.
+
+NOTE: Will skip the `MAIN` if the `autohv` is triggered.
 
 * :$version
 +
 Program version information.
 
-* :$bsd-style
+* :$bsd-style = False
 +
 When `$bsd-style` is True, `&parser` will accept bsd style option.
 
-* :$x-style
+* :@styles = [ :long, :xopt, :short, :ziparg, :comb ]
 +
-When `$x-style` is True, x-style option have priority over unix-style.
+The style need support by the `parser`.
+
+* :@order = []
++
+The priority of the styles, default is default order.
+
+* *%args
++
+The left named arguments will also pass to `new` of `$parserclass`,
+`&helper` and `&parser`.
 
 == `&wrap-command`
 
@@ -543,6 +570,8 @@ Callback provide by user, signature should be `(OptionSet $os, Getopt::Advance::
 Left parameters will pass to `&getopt`.
 
 NOTE: &wrap-command using `run` run your command.
+
+== OUTDATE 
 
 == `OptionSet`
 
