@@ -276,7 +276,7 @@ class OptionSet is export {
         if %!cache{$name}{$type}:exists {
             %!cache{$name}{$type}.reset-value;
         } else {
-            .reset-value if self!make-cache($name, $type);
+            self!make-cache($name, $type) andthen .reset-value;
         }
         self;
     }
