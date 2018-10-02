@@ -58,6 +58,10 @@ role Publisher is export {
     method subscribe(Info $info) {
         @!infos.push($info);
     }
+
+    method clean-subscriber() {
+        @!infos = [];
+    }
 }
 
 role Subscriber is export {

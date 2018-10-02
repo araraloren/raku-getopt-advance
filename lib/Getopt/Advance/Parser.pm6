@@ -55,7 +55,11 @@ class OptionActions is export {
 	has $.prefix;
     has $.handler;
     has $.typeoverload;
-    has $.publisher handles < publish >;
+    has $.publisher;
+
+    method publish(|c) {
+        $!publisher.publish(|c);
+    }
 
     method set-typeoverload($typeoverload) {
         $!typeoverload = $typeoverload;
@@ -319,7 +323,6 @@ my class OptionResultHandler does ResultHandler {
             &ga-parse-error("Can not find the option: {$parser.arg}");
         }
         #| skip next argument if the option has consume an argument
-        Debug::debug("Will skip the next arguments");
         $parser.skip() if self.skiparg();
         self;
     }
@@ -409,6 +412,7 @@ role Parser does Getopt::Advance::Utils::Publisher does RefOptionSet is export {
             &ga-raise-error('Set the :@order, styles for parser!');
         }
         Debug::debug("Style: {@!styles>>.key.join(" > ")}");
+        self.clean-subscriber();
         self;
     }
 
@@ -435,7 +439,7 @@ role Parser does Getopt::Advance::Utils::Publisher does RefOptionSet is export {
         $!handler;
     }
 
-    method CALL-ME( $!owner ) {
+    method CALL-ME() {
         my @delaypos;
 
         while $!index < $!count {
@@ -534,7 +538,7 @@ role Parser does Getopt::Advance::Utils::Publisher does RefOptionSet is export {
         &!cmdcheck(self);
 
         #| check if autohv is true
-        my $needhelp = $!autohv && &check-if-need-autohv($!owner);
+        my $needhelp = $!autohv && &check-if-need-autohv(self.owner());
 
         Debug::debug("** {$needhelp ?? "Skip b" !! "B"}roadcast the MAIN NonOption");
 
@@ -577,10 +581,9 @@ class PreParser does Parser is export {
                 self;
             }
             method handle($parser) {
-                Debug::debug("Call handler for option [{$parser.arg}]");
+                Debug::debug("Pre Parser call handler for option [{$parser.arg}]");
                 #| skip next argument if the option has consume an argument
                 if self.success {
-                    Debug::debug("Will skip the next arguments");
                     $parser.skip() if self.skiparg();
                 } else {
                     Debug::debug("Ignore current option: {$parser.arg} !");
@@ -597,7 +600,7 @@ sub ga-parser($parserobj, @args, $optset, *%args) is export {
     $parserobj.init(@args);
     $parserobj.set-owner($optset);
     $optset.set-parser($parserobj);
-    $parserobj.($optset);
+    $parserobj.();
     ReturnValue.new(
         optionset   => $optset,
         noa         => $parserobj.noa,
@@ -617,7 +620,7 @@ sub ga-pre-parser($parserobj, @args, $optset, *%args) is export {
     $parserobj.init(@args);
     $parserobj.set-owner($optset);
     $optset.set-parser($parserobj);
-    $parserobj.($optset);
+    $parserobj.();
     ReturnValue.new(
         optionset   => $optset,
         noa         => $parserobj.prenoa,
@@ -695,7 +698,7 @@ sub ga-parser2($parserobj, @args, $optset, *%args) is export {
     $parserobj.init(@args);
     $parserobj.set-owner($optset);
     $optset.set-parser($parserobj);
-    $parserobj.($optset);
+    $parserobj.();
     ReturnValue.new(
         optionset   => $optset,
         noa         => $parserobj.noa,
