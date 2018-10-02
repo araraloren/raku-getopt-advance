@@ -181,8 +181,12 @@ sub get-autohv($optset) is export {
             &ga-raise-error("Need the boolean option " ~ .[0] ~ " or " ~ .[1] ~ " for autohv");
         }
 
-        my $fs = $f ?? $optset{.[0]} !! False;
-        my $ss = $s ?? $optset{.[1]} !! False;
+        Debug::debug("Juage autohv eixsts: {@autohv-opt[0]}: {$f}, @autohv-opt[1]: {$s}");
+
+        my $fs = $f ?? $optset.get(.[0], 'b').value.so !! False;
+        my $ss = $s ?? $optset.get(.[1], 'b').value.so !! False;
+
+        Debug::debug("Juage autohv : {@autohv-opt[0]}: {$fs}, @autohv-opt[1]: {$ss}");
 
         return [ $fs, $ss ];
     }
