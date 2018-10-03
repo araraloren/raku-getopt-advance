@@ -42,7 +42,6 @@ grammar OptionGrammar is export {
 
 	token optname {
         <-[\=\-]> <-[\=]>*
-        #<-[\=\-]>+
 	}
 
 	token optvalue {
