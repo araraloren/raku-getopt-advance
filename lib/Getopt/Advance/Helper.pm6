@@ -239,7 +239,7 @@ multi sub ga-helper($optset, $outfh, *%args) is export {
         @all = &array-to-table(@all, style => 'none');
     }
     if $cmd > 0 && (! %args<disable-cmd-help>) {
-        $outfh.say($helper.commandhit);
+        $outfh.say($helper.commandhit ~ ($cmd > 1 ?? "s" !! ""));
         $outfh.say("  " ~ .join(" ") ~ $newline) for @all[^$cmd];
     }
     if $pos > 0 && (! %args<disable-pos-help>) {
