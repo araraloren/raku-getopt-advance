@@ -41,7 +41,7 @@ grammar OptionGrammar is export {
 	token option:sym<lv>{ '--' <optname> '=' <optvalue>	}
 
 	token optname {
-		<-[\=\-]>+
+        <-[\=\-]> <-[\=]>*
 	}
 
 	token optvalue {
