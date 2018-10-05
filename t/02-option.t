@@ -3,7 +3,7 @@ use Test;
 use Getopt::Advance;
 use Getopt::Advance::Option;
 
-plan 33;
+plan 35;
 
 my OptionSet $optset .= new;
 
@@ -23,6 +23,7 @@ $optset.push("f|flag=a");
 $optset.push("ex|=h", value => %(win32 => 'exe'));
 $optset.push("q|quite=b/");
 $optset.push("?=b");
+$optset.push("source-template=s", "use a template", value => "base" );
 
 $optset.append("p|print-code=b;d|debug=b;t|temp=a");
 $optset.append(
@@ -70,15 +71,16 @@ supply {
 &getopt(
     [
         '-h',
-        '--compiler',   'clang++',
-        '-m',           'int main(int argc, char* argv[])',
-        '-ex',          ':linux(a)',
+        '--compiler',           'clang++',
+        '--source-template',    'custom',
+        '-m',                   'int main(int argc, char* argv[])',
+        '-ex',                  ':linux(a)',
         '-S',
         '--/quite',
-        '-l',           'm',
-        '-L',           './',
-        '-i',           'math.h',
-        '-e',           'printf("Hello World!");',
+        '-l',                   'm',
+        '-L',                   './',
+        '-i',                   'math.h',
+        '-e',                   'printf("Hello World!");',
         '--debug',
         '-?',
     ],
@@ -87,9 +89,11 @@ supply {
 
 $optset.set-value('e', 'a', 'return 0;');
 
-is      $optset.values.elems, 20, 'we add 20 options.';
+is      $optset.values.elems, 21, 'we add 20 options.';
 isa-ok  $optset.get('h'), Option::Boolean, 'the **help** is a boolean option.';
 isa-ok  $optset.get('c', 's'), Option::String, 'the **compiler** is a String option.';
+isa-ok  $optset.get('source-template', 's'), Option::String, 'the **source-template** is a String option.';
+is      $optset.get('source-template').value, "custom", "**source-template** is set to 'custom'";
 isa-ok  $optset.get('w'), Any, 'we have not a **w** option.';
 nok     $optset.has('o'), 'we have not a **o** option.';
 ok      $optset.has('t'), 'we have a **t** option.';
