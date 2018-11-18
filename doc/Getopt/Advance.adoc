@@ -1015,6 +1015,8 @@ NOTE: thrown by `ga-want-all-helper()`.
 
 === role Helper
 
+`Helper` is using for generate usage and annotation message.
+
 * $.program is rw
 +
 The program name, default will be set to `$*PROGRAM-NAME` by `&ga-helper-impl`.
@@ -1125,158 +1127,335 @@ Return an `Helper` instance of current `OptionSet`.
 +
 Print the version message `$version` to `$outfh`.
 
-== OUTDATE
-
 == `Option`
+
+=== role Option
+
+* also does RefOptionSet
+* also does Subscriber
 
 The `Option` represent an option of command line argument.
 It can have long or short name, annotation, and
 callback which will called when option value set by user.
 
-=== Method of role Option
+==== Attribute
+
+* $.long
++
+Long name of current option, default is "".
+
+* $.short
++
+Short name of current option, default is "".
+
+* &.callback
++
+Callback of current option, default is `Callable`.
+
+* $.optional
++
+Whether or not the option is optional, default is True.
+
+* $.annotation
++
+Annotation of current option, default is "".
+
+* $.value
++
+Value of current option, default is Any.
+
+* $.default-value
++
+The default value of current option, default is Any.
+
+==== Method
+
+* init()
++
+Initialize method, will called by `TypesManager` when create instance of option type.
 
 * value()
-+
-Return the value of the option.
-
-* long() of Str
-+
-Return the long name of the option, return empty string when not setted.
-
-* short() of Str
-+
-Return the short name of the option, return empty string when not setted.
-
+* long()
+* short()
 * callback()
-+
-Return the callback of the option.
-
-* optional() of Bool
-+
-Return True if the option is optional. Default is True.
-
-* annotation() of Str
-+
-Return the annotation of the option, return empty string when not setted.
-
+* optional()
+* annotation()
 * default-value()
 +
-Return the default value of the option.
-The default value is value set by programmer when program initialized.
+Return the value of attribute.
 
-* has-value() of Bool
+* Supply(-\-> Supply)
 +
-Return True if value defined.
+Return an `Supply`, current `OptionSet`, current option and value provide by user will
+be emitted when option set.
 
-* has-long() of Bool
-+
-Return True if the option has long name.
+NOTE: This method is using by `OptionSet`.
 
-* has-short() of Bool
+* set-value(Any $value, Bool :$callback)
 +
-Return True if the option has short name.
+Set current option's value, call the `&.callback` with current option and
+value when `$callback` is True.
 
-* has-callback() of Bool
+* set-long(Str:D $long)
 +
-Return True if the option has callback.
+Set current option's long name.
 
-* has-annotation() of Bool
+* set-short(Str:D $short)
 +
-Return True if the option has annotation.
+Set current option's short name.
 
-* has-default-value() of Bool
+* set-callback(&callback where .signature ~~ :($, $) | :($))
 +
-Return True if the option has default value.
+Set current option's callback.
 
-* set-value(Mu, Bool :$callback)
+* set-optional(Bool $optional)
 +
-Set the value of the option, it will call `&callback` when `:callback` passed.
-The child class will check the type of value.
+Set current option's optional attribute.
 
-* set-long(Str:D)
+* set-annotation(Str:D $annotation)
 +
-Set the long name of the option. You should not call this method directly.
+Set current option's annotation.
 
-* set-short(Str:D)
+* set-default-value($value)
 +
-Set the short name of the option. You should not call this method directly.
+Set current option's default value.
 
-* set-callback(&callback)
+* has-value(-\-> Bool)
 +
-Set the callback of the option. You should not call this method directly.
+Return True if `$.value` is defined.
 
-* set-optional(Mu)
+* has-long(-\-> Bool)
 +
-Set the option optional. You should not call this method directly.
+Return True if long name is not "".
 
-* set-annotation(Str:D)
+* has-short(-\-> Bool)
 +
-Set the annotation of the option. You should not call this method directly.
+Return True if short name is not "".
 
-* set-default-value(Mu)
+* has-callback(-\-> Bool)
 +
-Set the default value of the option. You should not call this method directly.
+Return True if callback is defined.
+
+* has-annotation(-\-> Bool)
++
+Return True if annotation is not "".
+
+* has-default-value(-\-> Bool)
++
+Return True if default value is defined.
 
 * reset-long()
-+
-Set the long name to empty string.
-
 * reset-short()
+* reset-callback()
+* reset-annotation()
 +
-Set the short name to empty string.
+Reset the attribute to default value.
 
 * reset-value()
 +
-Set the value to default value.
+Reset the value to default value (get through `self.default-value()`).
 
-* reset-callback()
+* type( -\-> Str) { ... }
 +
-Set the callback to `(Callable)`.
+Type identify of current type, using by `TypesManager`.
 
-* reset-annotation()
+* check()
 +
-Set the annotation to empty string.
+Will call `ga-option-error` when optional is False and not have a value.
 
-* type() of Str
+* match-name(Str:D $name)
 +
-Return the identify name of the option class.
+Check if the `$name` matched with long or short name.
 
-* check() of Bool
+* match-value(Any) { ... }
 +
-Return False when value not set and the option not optional.
-
-* match-name(Str:D) of Bool
-+
-Return True if the name equal to any name of the option.
-
-* match-value(Mu) of Bool
-+
-Return True if the value type check success.
+Check the value.
 
 * lprefix()
 +
-Return the long prefix of the option, this method used by `&usage`.
+Get the long prefix string, default is '--'.
 
 * sprefix()
 +
-Return the short prefix of the option, this method used by `&usage`.
+Get the short prefix string, default is '-'.
 
-* need-argument()
+* need-argument(-\-> Bool)
 +
-Return True if the option need argument.
+Return True if the option need an argument, default is True.
 
-* usage() of Str
+* usage(-\-> Str)
 +
-Return the usage of the option.
+Return the usage message of current option.
 
-* clone(*%_)
+=== Option::Boolean does Option
+
+`Option::Boolean` represent boolean option, it can be using like `--bool` or `-bool`.
+
+==== Attribute
+
+* $.deactivate
 +
-Return an deep copy of current option.
+Whether or not the option is support deactivate style, such as '--/bool' can disable the option `bool`.
+
+==== Method
+
+* set-value(Any $value, Bool :$callback)
++
+Set the option's value to `$value.so`.
+
+* subscribe(Publisher $p)
++
+Subscribe the style `Style::XOPT`, `Style::LONG`, `Style::SHORT`, `Style::ZIPARG`, `Style::COMB` and
+`Style::BSD`.
+
+* type()
++
+Return the option type name `BOOLEAN`.
+
+* lprefix(-\-> Str)
++
+Default return `--/` when option is deactivate style.
+
+* sprefix(-\-> Str)
++
+Default return `-/` when option is deactivate style.
+
+* need-argument(-\-> Bool)
++
+Default is False.
+
+* match-value(Any:D $value)
++
+Return False if option is deactivate style and `$value` is True.
+
+=== Option::Integer does Option
+
+`Option::Integer` represent the option which has a integer value,
+it can be using such as `--int 3` or `-int=3`.
+
+==== Method
+
+* set-value(Any:D $value, Bool :$callback)
++
+Call `&ga-invalid-value` if the `$value` not a integer value or can not convert to integer value.
+
+* subscribe(Publisher $p)
++
+Subscribe the style `Style::XOPT`, `Style::LONG`, `Style::SHORT`, `Style::ZIPARG` and `Style::COMB`.
+
+* type()
++
+Return the option type name `INTEGER`.
+
+* match-value(Any:D $value)
++
+Return False if the `$value` is not a integer value or can not convert to a integer value.
+
+=== Option::Float does Option
+
+`Option::Float` represent the option which has a float point value,
+it can be using such as `--flt 3.1` or `-flt=3.1`.
+
+==== Method
+
+* set-value(Any:D $value, Bool :$callback)
++
+Call `&ga-invalid-value` if the `$value` not a float point value or can not convert to float point value.
+
+* subscribe(Publisher $p)
++
+Subscribe the style `Style::XOPT`, `Style::LONG`, `Style::SHORT`, `Style::ZIPARG` and `Style::COMB`.
+
+* type()
++
+Return the option type name `FLOAT`.
+
+* match-value(Any:D $value)
++
+Return False if the `$value` is not a float point value or can not convert to a float point value.
+
+=== Option::String does Option
+
+`Option::String` represent the option which has a string value,
+it can be using such as `--str foo` or `-str=bar`.
+
+==== Method
+
+* set-value(Any:D $value, Bool :$callback)
++
+Call `&ga-invalid-value` if the `$value` not a string value or can not convert to string value.
+
+* subscribe(Publisher $p)
++
+Subscribe the style `Style::XOPT`, `Style::LONG`, `Style::SHORT`, `Style::ZIPARG` and `Style::COMB`.
+
+* type()
++
+Return the option type name `STRING`.
+
+* match-value(Any:D $value)
++
+Return False if the `$value` is not a string value or can not convert to string value.
+
+=== Option::Array does Option
+
+`Option::Array` represent the option which has multiple value like an array.
+It can be set multiple time through command line like `--str foo`, `--str bar`.
+The value of option will contain the string `foo` and `bar`.
+
+==== Method
+
+* set-value(Any:D $value, Bool :$callback)
++
+Push the `$value` to current option value.
+
+* subscribe(Publisher $p)
++
+Subscribe the style `Style::XOPT`, `Style::LONG`, `Style::SHORT`, `Style::ZIPARG` and `Style::COMB`.
+
+* type()
++
+Return the option type name `ARRAY`.
+
+* match-value(Any:D $value)
++
+Always return True.
+
+=== Option::Hash does Option
+
+`Option::Hash` represent the option which has multiple key and value like an hash.
+It can be set multiple time through command line like `--str ':foo(1)'`, `--str 'bar \=> 2'`.
+
+==== Method
+
+* set-value(Any:D $value, Bool :$callback)
++
+Call `&ga-invalid-value` if the `$value` not a Pair or can not parse to Pair.
+Otherwise insert the Pair to option value.
+
+* subscribe(Publisher $p)
++
+Subscribe the style `Style::XOPT`, `Style::LONG`, `Style::SHORT`, `Style::ZIPARG` and `Style::COMB`.
+
+* type()
++
+Return the option type name `HASH`.
+
+* match-value(Any:D $value)
++
+Return True if the `$value` is a Pair or can convert to a Pair, or can parse to a Pair.
 
 == `NonOption`
 
-The `NonOption` represent NOA(non-option argument) of command line argument.
-It can support create multi command program, or something like `MAIN` of Perl6.
+=== role NonOption
+
+The `NonOption` represent NOA(non-option argument) of command line argument base on the index.
+
+==== Attribute
+
+
+==== Method
+
 
 === Method of role NonOption
 
