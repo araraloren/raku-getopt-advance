@@ -1881,16 +1881,46 @@ mrh => ResultHandler.new but role :: {
 ==== Method
 
 * init(@!args, :@order)
++
+Initialize the data and callback that needed.
+Clean all the subscriber.
 
 * skip()
++
+Increment the `$!index` to skip next command line argument
 
 * ignore()
++
+Ignore current command line argument, add it to `NOA` array `@!noa` and return the `NOA`.
 
 * type()
++
+Current `TypeOverload` instance.
 
 * handler()
++
+Current `ResultHandlerOverload` instance.
 
 * CALL-ME()
++
+In default, parsing the command line argument and try to match the option/non-option in below order:
+
++
+`option`  `CMD`  `POS`  `MAIN`
+
++
+You can also specific the order of option style through `&getopt`.
+
+=== PreParser does Parser
+
+By comparison with `Parser`, `PreParser` will not throw exception when the option not found in current
+`OptionSet`. And you can get the left command line arguments (not `NOA`) through the return value of `PreParser`.
+
+=== Parser2 does Parser
+
+By comparison with `Parser`, instead of match and set option value.
+`Parser2` will match the option first, then process `CMD` and `POS`,
+last set the option value before process `MAIN`
 
 === Sub
 
