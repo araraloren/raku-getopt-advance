@@ -6,7 +6,7 @@
 :Revision: 1.0
 :icons: font
 :source-highlighter: pygments
-:source-language: perl6
+:source-language: raku
 :pygments-linenums-mode: table
 :toc: left
 :lang: en
@@ -15,9 +15,9 @@ Getopt::Advance - An advance command line option parsing tools.
 
 = SYNOPSIS
 
-[source,perl6]
+[source,raku]
 -------------------------------
-#!/usr/bin/env perl6
+#!/usr/bin/env raku
 
 use Getopt::Advance;
 use Getopt::Advance::Parser;
@@ -142,7 +142,7 @@ There are no argument of new:
 * `push(::OptionSet::D: Str:D $opt, Str:D $annotation, :$value, :&callback -\-> OptionSet)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.push("c|count=i", "set something int", value => 3, callback => sub ($option, $value) { say "get value $value"; });
 
 Above code add an option to the `OptionSet`, which with short name **c** and long name **count**.
@@ -158,7 +158,7 @@ NOTE: The first parameter of `callback` is current **Option** processed, and sec
 * `append(::OptionSet::D: *@optpairs where all(@optpairs) ~~ Pair -\-> OptionSet)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.append("c|count=i" => "set something int", "s|string=s" => "set something string")
 
 This code append two `Options` with their name and annotation to the `OptionSet`.
@@ -166,7 +166,7 @@ This code append two `Options` with their name and annotation to the `OptionSet`
 * `get(::OptionSet::D: Str:D $name, Str:D $type = WhateverType)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.get('c', 'i');
 
 This will try to get a `Option` by its name and type, the sub will return **Any** if the `Option` not exists.
@@ -174,7 +174,7 @@ This will try to get a `Option` by its name and type, the sub will return **Any*
 * `has(::OptionSet::D: Str:D $name, Str:D $type = WhateverType -\-> Bool)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.has('c', 'i');
 
 This code check if there is a `Option` called **c** and it's type is **i**.
@@ -182,7 +182,7 @@ This code check if there is a `Option` called **c** and it's type is **i**.
 * `Supply(::OptionSet::D: Str:D $name, Str:D $type = WhateverType -\-> Supply)`
 
 .example
-[source,perl6]
+[source,raku]
 ---------------
 $optset.Supply('c').tap(-> \v {
     my ($optset, $option, $v) = @(v);
@@ -204,13 +204,13 @@ For example, with radio group, it only accept one option in same time.
 * `append(::OptionSet::D: :$optional = True, :$radio, *@optpairs where all(@optpairs) ~~ Pair -\-> ::OptionSet)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.append("c|count=c;s|string=s", :radio);
 
 This add a radio group, it's only allow set one of them in same time.
 
 .example
-[source,perl6]
+[source,raku]
 $optset.append("c|count=c;s|string=s", :multi);
 
 This add a multiple group.
@@ -223,7 +223,7 @@ This add a multiple group.
 * `insert-main(::OptionSet::D: Str:D $name, &callback = sub () { True } -\-> Int)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.insert-main(sub (@args) { .say for @args; });
 
 This insert a `NonOption::Main` to `OptionSet`, it will call with all non-option arguments.
@@ -232,7 +232,7 @@ This insert a `NonOption::Main` to `OptionSet`, it will call with all non-option
 * `insert-cmd(::OptionSet::D: Str:D $name, Str:D $annotation, &callback = sub () { True } -\-> Int)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.insert-cmd("load", sub (@args) { .say for @args; True; } );
 
 This insert a `NonOption::Cmd` to `OptionSet`, it will call with all non-option arguments except the name(load).
@@ -244,7 +244,7 @@ It need user provide the command in the command line arguments, for example `scr
 * `insert-pos(::OptionSet::D: Str:D $name, Str:D $annotation, $index where Int:D | WhateverCode , &callback = sub () { True } --> Int)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.insert-pos("load", 0, sub ($arg) { say $arg; True; });
 
 This insert a `NonOption::Pos` to `OptionSet`, it will call with non-option argument matched by index(base on zero).
@@ -262,7 +262,7 @@ The `front` and `last` will insert a `NonOption::Pos` with index 0 and * - 1, re
 * `get-pos(::OptionSet::D: Str:D $name, $index)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.get(2);
 $optset.get-main(2);
 
@@ -272,7 +272,7 @@ The second line get the `NonOption::Main` which id is 2.
 * `has(::OptionSet::D: Int:D $id -\-> False)`
 
 .example
-[source,perl6]
+[source,raku]
 $optset.has(2);
 
 Return True if the `NonOption` which id is 2 exists.
@@ -283,7 +283,7 @@ Return True if the `NonOption` which id is 2 exists.
 * `Supply(::OptionSet::D: Int:D $id, :$pos! , -\-> Supply)`
 
 .example
-[source,perl6]
+[source,raku]
 ---------------------
 $optset.Supply(2).tap(sub \v {
     my ($optset, $no, $v) = @(v);
@@ -353,7 +353,7 @@ NOTE: The parser will process `main` last.
 ==== Return value
 
 `ga-parser` or `ga-parser2` will generate a return value of each `MAIN` like this:
-[source,perl6]
+[source,raku]
 -----------------------------
 ReturnValue.new(
     optionset   => $optset,         # current optionset
@@ -1857,7 +1857,7 @@ All the command line arguments.
 * $.typeoverload
 +
 The default type using by `Parser` are:
-[source,perl6]
+[source,raku]
 optgrammar => OptionGrammar,
 optactions => OptionActions,
 optcontext => TheContext::Option,
@@ -1869,7 +1869,7 @@ contextprocessor => Getopt::Advance::Utils::ContextProcessor
 * $.handler
 +
 The default handler using by `Parser` are:
-[source,perl6]
+[source,raku]
 orh => OptionResultHandler.new,
 prh => ResultHandler.new,
 crh => ResultHandler.new,

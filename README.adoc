@@ -1,4 +1,4 @@
-= perl6-getopt-advance
+= raku-getopt-advance
 :toc-title: contents
 :description: An advance command line parse tool replace Getopt::Kinoko
 :keywords: getopt command line option
@@ -6,12 +6,12 @@
 :Revision: 1.0
 :icons: font
 :source-highlighter: pygments
-:source-language: perl6
+:source-language: raku
 :pygments-linenums-mode: table
 :toc: left
 :lang: en
 
-image:https://travis-ci.org/araraloren/perl6-getopt-advance.svg?branch=master["Build Status", link="https://travis-ci.org/araraloren/perl6-getopt-advance"]
+image:https://travis-ci.org/araraloren/raku-getopt-advance.svg?branch=master["Build Status", link="https://travis-ci.org/araraloren/raku-getopt-advance"]
 image:https://ci.appveyor.com/api/projects/status/1aknogb99475ak53/branch/master?svg=true["Windows Build Status", link="https://ci.appveyor.com/api/projects/status/1aknogb99475ak53?svg=true"]
 
 An advance command line parse tool replace Getopt::Kinoko
@@ -30,7 +30,7 @@ non-option argument, it provide `main`、`pos` and `cmd` feature.
 
 === Normal version
 
-[source,perl6]
+[source,raku]
 ---------------
 use Getopt::Advance;
 
@@ -49,7 +49,7 @@ say "Exit!";
 
 === With react
 
-[source,perl6]
+[source,raku]
 ---------------
 use Getopt::Advance;
 
@@ -151,11 +151,11 @@ link:doc/Getopt/Advance.adoc[Getopt-Advance]
 
 === App::snippet
 
-link:https://github.com/araraloren/perl6-app-snippet[Run your c/c++ code.]
+link:https://github.com/araraloren/raku-app-snippet[Run your c/c++ code.]
 
 === App::FindSource
 
-link:https://github.com/araraloren/perl6-app-findsource[Find your source file easily!]
+link:https://github.com/araraloren/raku-app-findsource[Find your source file easily!]
 
 === xcp
 

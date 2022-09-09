@@ -1,5 +1,5 @@
 
-= perl6-getopt-advance
+= raku-getopt-advance
 
 An advance command line parse tool replace Getopt::Kinoko
 
@@ -16,7 +16,7 @@ An advance command line parse tool replace Getopt::Kinoko
 
 === 普通版本
 
-[source,perl6]
+[source,raku]
 ---------------
 use Getopt::Advance;
 
@@ -35,7 +35,7 @@ say "Exit!";
 
 === 使用react
 
-[source,perl6]
+[source,raku]
 ---------------
 use Getopt::Advance;
 

@@ -1,6 +1,10 @@
 
 = UPDATE LOG
 
+* 2022-09-09
+
+    Migrate the module from raku to raku lang.
+
 * 2018-11-20
 
     Fix the type of attribute of ReturnValue, should be Array.
